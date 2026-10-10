@@ -4,5 +4,5 @@ package web
 
 import "embed"
 
-//go:embed index.html 404.html favicon.svg manifest.json sw.js assets Workshop Library
+//go:embed index.html 404.html favicon.svg manifest.json sw.js assets Workshop Library Admin
 var FS embed.FS
