@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Arbitrary z-index utilities (kept in sync with HTML usage; the prebuilt tailwind.css is not always rebuilt). */
+.z-\[60\]{z-index:60}
+.z-\[100\]{z-index:100}
+.z-\[200\]{z-index:200}
+.z-\[220\]{z-index:220}
+.z-\[300\]{z-index:300}
+.z-\[2000\]{z-index:2000}
+.z-\[2100\]{z-index:2100}
+.z-\[2600\]{z-index:2600}
+.z-\[3000\]{z-index:3000}
+.z-\[9999\]{z-index:9999}
+.z-\[100000\]{z-index:100000}
