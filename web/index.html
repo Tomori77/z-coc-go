@@ -1437,6 +1437,8 @@
         @keyframes zHeroSettle { from { opacity: 0; transform: scale(1.012) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         .z-danmaku { position: absolute; left: 100%; white-space: nowrap; will-change: transform; animation-name: z-danmaku-fly; animation-timing-function: linear; animation-fill-mode: forwards; text-shadow: 0 1px 3px rgba(0,0,0,.85); }
         @keyframes z-danmaku-fly { from { left: 100%; } to { left: -100%; } }
+        .z-item-fx { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%); animation: z-item-fx 2.4s ease-out forwards; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+        @keyframes z-item-fx { 0% { opacity: 0; transform: translate(-50%,-30%) scale(.6); } 15% { opacity: 1; transform: translate(-50%,-50%) scale(1.15); } 70% { opacity: 1; transform: translate(-50%,-55%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-80%) scale(1); } }
         .z-art-tavern .z-ornamented-card {
             background-image:
                 linear-gradient(145deg, rgba(13,21,27,.955), rgba(4,9,13,.975)),
@@ -2248,6 +2250,13 @@
                         <div v-if="danmakuEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="absolute inset-0 pointer-events-none overflow-hidden z-30">
                             <div v-for="d in danmakuItems" :key="d.id" class="z-danmaku text-sm font-bold text-mystic-gold" :style="{ top: d.top + '%', animationDuration: d.duration + 's' }">{{ d.name && (d.name + '：') }}{{ d.text }}</div>
                         </div>
+                        <!-- 道具特效漂浮层（全员可见） -->
+                        <div v-if="itemsEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="absolute inset-0 pointer-events-none overflow-hidden z-40">
+                            <div v-for="fx in itemEffects" :key="fx.id" class="z-item-fx text-center">
+                                <div class="text-6xl">{{ fx.emoji }}</div>
+                                <div class="text-xs text-mystic-gold font-bold mt-1">{{ fx.fromName }} → {{ fx.toName }}</div>
+                            </div>
+                        </div>
                         <!-- Game Header -->
                         <div class="min-h-16 py-2 bg-dark-950/80 backdrop-blur-md border-b border-dark-800 flex items-center justify-between px-4 md:px-6 z-10 shadow-2xl flex-shrink-0 relative safe-pt">
                             <div class="absolute inset-0 bg-gradient-to-r from-mystic-gold/5 via-transparent to-transparent pointer-events-none"></div>
@@ -2788,6 +2797,15 @@
                             </aside>
                         </div>
 
+                        <!-- 道具栏（房间内全员可用） -->
+                        <div v-if="itemsEnabled && cocState.mode === 'multi' && multiplayerState.inRoom && itemDefs.length" class="px-2 pt-2 z-20 relative">
+                            <div class="max-w-4xl mx-auto w-full flex items-center gap-2 bg-dark-900 border border-dark-800 rounded-lg px-3 py-1.5">
+                                <span class="text-xs shrink-0 text-slate-500">道具</span>
+                                <button v-for="it in itemDefs" :key="it.key" @click="selectItem(it)" :title="it.label"
+                                        :class="['px-2 py-1 rounded text-base leading-none border transition-all', selectedItem && selectedItem.key === it.key ? 'bg-mystic-gold/30 border-mystic-gold' : 'bg-dark-800 border-dark-600 hover:border-mystic-gold/50']">{{ it.emoji }}</button>
+                                <span v-if="selectedItem" class="text-[10px] text-mystic-gold truncate">已选 {{ selectedItem.emoji }} · 点击成员使用</span>
+                            </div>
+                        </div>
                         <!-- 弹幕输入（全员可见） -->
                         <div v-if="danmakuEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="px-2 pt-2 z-20 relative">
                             <div class="max-w-4xl mx-auto w-full flex items-center gap-2 bg-dark-900 border border-dark-800 rounded-lg px-3 py-1.5">
@@ -5912,7 +5930,7 @@
                 };
                 const cocInput = ref(''); const cocInputRef = ref(null); const cocChatContainer = ref(null); const isGenerating = ref(false);
                 // 服务端应用设置：用于按开关隐藏群聊/大厅/好友等入口，缺省全部开启
-                const appConfig = ref({ 'chat.player.enabled': true, 'chat.spectator.enabled': true, 'danmaku.enabled': true, 'danmaku.cooldown_ms': 2000, 'items.enabled': true, 'items.cooldown_ms': 3000, 'items.defs': [], 'lobby.enabled': true, 'friends.enabled': true });
+                const appConfig = ref({ 'chat.player.enabled': true, 'chat.spectator.enabled': true, 'danmaku.enabled': true, 'danmaku.cooldown_ms': 2000, 'items.enabled': true, 'items.cooldown_ms': 30000, 'items.defs': [], 'lobby.enabled': true, 'friends.enabled': true });
                 const loadAppConfig = async () => {
                     try {
                         const res = await fetch(window.ZCOC_RUNTIME.apiUrl('config_api.php?action=settings'));
@@ -5931,6 +5949,37 @@
                 const danmakuEnabled = Vue.computed(() => appConfig.value['danmaku.enabled'] !== false);
                 const danmakuCooldown = Vue.computed(() => Number(appConfig.value['danmaku.cooldown_ms']) || 0);
                 let danmakuLastSent = 0;
+                // 道具：房间内全员可见的道具交互，非房主消息类型 item_use
+                const itemsEnabled = Vue.computed(() => appConfig.value['items.enabled'] !== false);
+                const itemDefs = Vue.computed(() => Array.isArray(appConfig.value['items.defs']) ? appConfig.value['items.defs'] : []);
+                const itemsCooldown = Vue.computed(() => Number(appConfig.value['items.cooldown_ms']) || 0);
+                const selectedItem = ref(null);
+                const itemEffects = ref([]);
+                let itemsLastUsed = 0;
+                const selectItem = (def) => { if (!def) return; selectedItem.value = (selectedItem.value && selectedItem.value.key === def.key) ? null : def; };
+                const playItemEffect = (emoji, fromName, toName) => {
+                    const id = 'fx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+                    itemEffects.value.push({ id, emoji, fromName, toName });
+                    if (itemEffects.value.length > 20) itemEffects.value.splice(0, itemEffects.value.length - 20);
+                    setTimeout(() => { itemEffects.value = itemEffects.value.filter(fx => fx.id !== id); }, 2600);
+                };
+                const useItemOn = (member) => {
+                    if (!multiplayerState.inRoom) return showToast('请先进入房间', 'warning');
+                    if (!itemsEnabled.value) return showToast('道具未开启', 'warning');
+                    if (!selectedItem.value) return;
+                    if (!member || !member.id) return;
+                    const now = Date.now();
+                    if (now - itemsLastUsed < itemsCooldown.value) {
+                        const wait = Math.ceil((itemsCooldown.value - (now - itemsLastUsed)) / 1000);
+                        return showToast('道具冷却中（' + wait + 's）', 'warning');
+                    }
+                    const item = selectedItem.value;
+                    itemsLastUsed = now;
+                    playItemEffect(item.emoji, user.name, member.name);
+                    showToast(user.name + ' 对 ' + (member.name || '') + ' 使用了 ' + item.emoji + (item.label || ''), 'info');
+                    broadcastMessage({ type: 'item_use', item: { key: item.key, emoji: item.emoji, label: item.label }, target: { id: member.id, name: member.name }, user: { id: getRoomSessionId(), name: user.name } });
+                    selectedItem.value = null;
+                };
                 // 仅在用户已经接近底部时跟随新消息，避免生成长正文时打断阅读。
                 const chatAutoScroll = ref(true);
                 const handleChatScroll = () => {
@@ -6075,6 +6124,7 @@
                 };
                 const closeMemberCard = () => { showMemberCard.value = false; memberCardInv.value = null; };
                 const onMemberTileClick = (member) => {
+                    if (selectedItem.value && itemsEnabled.value) { useItemOn(member); return; }
                     if (multiplayerState.isHost) selectRoomMember(member);
                     else viewMemberCard(member);
                 };
@@ -10044,6 +10094,13 @@ ${buildInvestigatorProfile(inv)}
                                 if (u.id !== getRoomSessionId()) pushDanmaku(payload.text, u.name);
                             }
                             break;
+                        case 'item_use': {
+                            if (itemsEnabled.value && payload && payload.item) {
+                                const u = payload.user || {}; const tgt = payload.target || {};
+                                if (u.id !== getRoomSessionId()) playItemEffect(payload.item.emoji, u.name, tgt.name);
+                            }
+                            break;
+                        }
                     }
                 };
 
@@ -10506,6 +10563,7 @@ ${buildInvestigatorProfile(inv)}
                     appConfig, loadAppConfig, chatEnabled,
                     groupChat, groupChatInput, spectatorChat, spectatorChatInput, showGroupChat, groupChatScrollEl, sendGroupChat, sendSpectatorChat,
                     danmakuItems, danmakuInput, danmakuEnabled, sendDanmaku,
+                    itemsEnabled, itemDefs, selectedItem, itemEffects, selectItem, useItemOn,
                     publicRooms, lobbyLoading, createRoomPublic, roomIsPublic, joinPublicRoom, toggleRoomPublic, refreshLobby, renameRoom,
                     showMentionList, mentionCandidates, handleInput, selectMention, savedGames, savesFilter, groupedSaves, openFolders, toggleFolder, moveSaveToFolder, renameFolder, 
                     isSavesEditing, toggleSavesEditMode, moveFolder, deleteFolder, editFolderName, promptMoveToFolder, folderManagementState, closeFolderModal, confirmFolderAction, 

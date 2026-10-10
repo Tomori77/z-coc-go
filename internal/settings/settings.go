@@ -36,7 +36,7 @@ var Definitions = []Def{
 	{Key: "danmaku.enabled", Kind: KindBool, Default: "true", Public: true},
 	{Key: "danmaku.cooldown_ms", Kind: KindInt, Default: "2000", Public: true},
 	{Key: "items.enabled", Kind: KindBool, Default: "true", Public: true},
-	{Key: "items.cooldown_ms", Kind: KindInt, Default: "3000", Public: true},
+	{Key: "items.cooldown_ms", Kind: KindInt, Default: "30000", Public: true},
 	{Key: "items.defs", Kind: KindJSON, Default: `[{"key":"flower","emoji":"🌸","label":"小红花"},{"key":"egg","emoji":"🥚","label":"鸡蛋"},{"key":"firework","emoji":"🎆","label":"烟花"},{"key":"slipper","emoji":"🩴","label":"拖鞋"}]`, Public: true},
 	{Key: "lobby.enabled", Kind: KindBool, Default: "true", Public: true},
 	{Key: "friends.enabled", Kind: KindBool, Default: "true", Public: true},
