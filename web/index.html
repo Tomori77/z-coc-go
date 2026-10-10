@@ -5766,7 +5766,7 @@
                 const handleInput = (e) => { const val = e.target.value; const cursor = e.target.selectionStart; const lastAt = val.lastIndexOf('@', cursor - 1); if (lastAt !== -1 && (lastAt === 0 || val[lastAt - 1] === ' ' || val[lastAt - 1] === '\n')) { const query = val.substring(lastAt + 1, cursor); if (!query.includes(' ')) { mentionQuery.value = query; showMentionList.value = true; return; } } showMentionList.value = false; };
                 const selectMention = (candidate) => { const val = cocInput.value; const cursor = cocInputRef.value.selectionStart; const lastAt = val.lastIndexOf('@', cursor - 1); if (lastAt !== -1) { const before = val.substring(0, lastAt); const after = val.substring(cursor); cocInput.value = `${before}@${candidate.name} ${after}`; showMentionList.value = false; nextTick(() => { cocInputRef.value.focus(); const newCursorPos = lastAt + 1 + candidate.name.length + 1; cocInputRef.value.setSelectionRange(newCursorPos, newCursorPos); }); } };
 
-                const multiplayerState = reactive({ isConnected: false, inRoom: false, roomId: null, hostToken: '', myId: null, isHost: false, hostAuthorizationFailed: false, members: [], turnStatus: {}, skipStatus: {}, isReady: false, assignments: {}, assignmentDetails: {}, turnIndex: 0, roundNumber: 0, roundActionIds: [], cotAuthorizedUsers: [], syncReceived: false, isSpectator: false, kickedMembers: [], memberMenuUserId: null });
+                const multiplayerState = reactive({ isConnected: false, inRoom: false, roomId: null, hostToken: '', myId: null, isHost: false, hostAuthorizationFailed: false, useWebSocket: true, members: [], turnStatus: {}, skipStatus: {}, isReady: false, assignments: {}, assignmentDetails: {}, turnIndex: 0, roundNumber: 0, roundActionIds: [], cotAuthorizedUsers: [], syncReceived: false, isSpectator: false, kickedMembers: [], memberMenuUserId: null });
                 const hasActiveInvestigator = Vue.computed(() => cocState.activeInvestigatorIndex !== -1 && !!cocState.investigators[cocState.activeInvestigatorIndex]);
                 const activeInvestigatorName = Vue.computed(() => hasActiveInvestigator.value ? cocState.investigators[cocState.activeInvestigatorIndex].name : '');
                 const selectedRoomMember = Vue.computed(() => multiplayerState.members.find(member => member.id === selectedRoomMemberId.value) || null);
@@ -5805,6 +5805,12 @@
                 let roomLastMessageId = 0;
                 let roomPollInFlight = false;
                 let lastRoomErrorAt = 0;
+                // WS 房间通道状态（HTTP 轮询作为回退并存）
+                let roomSocket = null;
+                let roomSocketReady = false;
+                let roomSocketRetry = 0;
+                let roomSocketRetryTimer = null;
+                let roomPingTimer = null;
                 const friends = ref([]); const friendRequests = ref([]); const friendInput = ref(''); const showJoinInput = ref(false); const joinRoomId = ref(''); const joinAsSpectator = ref(false); const savedGames = ref([]);
                 const savesFilter = ref('all');
                 const isSavesEditing = ref(false);
@@ -6449,6 +6455,9 @@ const handleAuth = async () => {
                 const handleLogout = async () => {
                     if (!await showConfirm('断开云端连接会清除当前账号在本浏览器中的存档副本；云端数据不会删除。是否继续？', '断开确认')) return;
                     clearTimeout(window._syncTimer);
+                    // 退出登录：关闭房间实时通道与回退轮询
+                    closeRoomSocket();
+                    stopRoomPolling();
                     if (authState.token) {
                         try {
                             const response = await fetch(window.ZCOC_RUNTIME.apiUrl('db_api.php?action=logout'), {
@@ -9029,6 +9038,11 @@ ${buildInvestigatorProfile(inv)}
                     if (!multiplayerState.roomId || !senderId) return false;
                     const isProtectedHostMessage = multiplayerState.isHost && ROOM_HOST_ONLY_TYPES.has(payload?.type);
                     if (isProtectedHostMessage && multiplayerState.hostAuthorizationFailed) return false;
+                    // WS 就绪优先走 send 帧；否则回退到原有 HTTP push（行为不变）
+                    if (multiplayerState.useWebSocket && roomSocketReady && roomSocketSend({ type: 'send', payload })) {
+                        multiplayerState.isConnected = true;
+                        return true;
+                    }
                     try {
                         await roomApiRequest('push', {
                             room_id: multiplayerState.roomId,
@@ -9065,6 +9079,14 @@ ${buildInvestigatorProfile(inv)}
                     roomPollInFlight = false;
                 };
 
+                // 统一应用一条房间消息：推进游标、跳过自身、交给广播处理器（轮询与 WS 共用）
+                const applyRoomMessage = (msg) => {
+                    if (!msg) return;
+                    roomLastMessageId = Math.max(roomLastMessageId, Number(msg.id) || 0);
+                    if (msg.sender_id === getRoomSessionId()) return;
+                    if (msg.payload && msg.payload.type) handleBroadcastMessage(msg.payload);
+                };
+
                 const pollRoomMessages = async () => {
                     if (!multiplayerState.roomId || !multiplayerState.inRoom || roomPollInFlight) return;
                     const activeRoomId = multiplayerState.roomId;
@@ -9076,11 +9098,7 @@ ${buildInvestigatorProfile(inv)}
                             user_id: getRoomSessionId()
                         });
                         if (activeRoomId !== multiplayerState.roomId) return;
-                        (data.messages || []).forEach(msg => {
-                            roomLastMessageId = Math.max(roomLastMessageId, Number(msg.id) || 0);
-                            if (msg.sender_id === getRoomSessionId()) return;
-                            if (msg.payload && msg.payload.type) handleBroadcastMessage(msg.payload);
-                        });
+                        (data.messages || []).forEach(applyRoomMessage);
                         // 房主依据 presence 在线登记标记掉线成员（玩家每次轮询都会刷新 last_seen；180 秒无响应判定离线）
                         if (multiplayerState.isHost && Array.isArray(data.presence)) {
                             const serverNow = Number(data.now) || Math.floor(Date.now() / 1000);
@@ -9109,6 +9127,169 @@ ${buildInvestigatorProfile(inv)}
                     stopRoomPolling();
                     pollRoomMessages();
                     roomPollTimer = setInterval(pollRoomMessages, 1500);
+                };
+
+                // ---- WebSocket 房间通道（Phase 3b；HTTP 轮询保留为回退） ----
+                const buildRoomSocketUrl = () => {
+                    const raw = String(window.ZCOC_RUNTIME.apiUrl('room_ws') || '').trim();
+                    if (!raw) return '';
+                    let resolved = raw;
+                    try { resolved = new URL(raw, window.location.href).toString(); } catch (_) {}
+                    return resolved.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:');
+                };
+
+                const roomSocketSend = (frame) => {
+                    if (!roomSocket || roomSocket.readyState !== WebSocket.OPEN) return false;
+                    try { roomSocket.send(JSON.stringify(frame)); return true; } catch (e) { return false; }
+                };
+
+                const clearRoomPing = () => {
+                    if (roomPingTimer) { clearInterval(roomPingTimer); roomPingTimer = null; }
+                };
+
+                // 依据 WS presence/ready 的在线表刷新成员离线标记（纯 HTTP 成员不在帧内，保持原状）
+                const applyRoomPresence = (members) => {
+                    if (!Array.isArray(members)) return;
+                    const online = new Map(members.map(m => [String(m && m.user_id), m && m.online !== false]));
+                    let changed = false;
+                    multiplayerState.members.forEach(m => {
+                        if (m.isHost) {
+                            if (m.isOffline) { m.isOffline = false; changed = true; }
+                            return;
+                        }
+                        const state = online.get(String(m.id));
+                        if (state === undefined) return;
+                        const offline = !state;
+                        if (Boolean(m.isOffline) !== offline) { m.isOffline = offline; changed = true; }
+                    });
+                    if (changed && multiplayerState.isHost) broadcastState();
+                };
+
+                // WS 返回与 HTTP 相同的错误码；主机鉴权失败走凭证恢复流程
+                const handleRoomSocketError = (frame) => {
+                    const code = frame && frame.code ? String(frame.code) : '';
+                    const message = frame && frame.message ? String(frame.message) : '联机服务返回错误';
+                    if (code === 'HOST_AUTH_FAILED') {
+                        const previousToken = multiplayerState.hostToken;
+                        if (restoreHostRoomSession(multiplayerState.roomId) && multiplayerState.hostToken !== previousToken) {
+                            multiplayerState.hostAuthorizationFailed = false;
+                            return;
+                        }
+                        multiplayerState.hostAuthorizationFailed = true;
+                        multiplayerState.isConnected = false;
+                        showRoomTransportError('房主凭证已失效，请退出后重新创建房间');
+                        return;
+                    }
+                    console.error('Room socket error:', code || frame, message);
+                };
+
+                const scheduleRoomSocketRetry = () => {
+                    if (roomSocketRetryTimer || !multiplayerState.inRoom || !multiplayerState.roomId || !multiplayerState.useWebSocket) return;
+                    roomSocketRetry += 1;
+                    // 连续失败后放弃 WS，稳定回退到 HTTP 轮询
+                    if (roomSocketRetry > 6) {
+                        multiplayerState.useWebSocket = false;
+                        startRoomPolling();
+                        return;
+                    }
+                    const delay = Math.min(1000 * Math.pow(2, roomSocketRetry - 1), 16000);
+                    roomSocketRetryTimer = setTimeout(() => {
+                        roomSocketRetryTimer = null;
+                        openRoomSocket();
+                    }, delay);
+                };
+
+                const openRoomSocket = () => {
+                    if (typeof WebSocket === 'undefined') { multiplayerState.useWebSocket = false; return; }
+                    if (!multiplayerState.useWebSocket) return;
+                    if (roomSocket && (roomSocket.readyState === WebSocket.OPEN || roomSocket.readyState === WebSocket.CONNECTING)) return;
+                    if (!multiplayerState.roomId || !multiplayerState.inRoom) return;
+                    const senderId = getRoomSessionId();
+                    if (!senderId) return;
+                    const url = buildRoomSocketUrl();
+                    if (!url) { multiplayerState.useWebSocket = false; startRoomPolling(); return; }
+
+                    let socket;
+                    try { socket = new WebSocket(url); } catch (e) {
+                        console.warn('Room socket unavailable, falling back to polling:', e);
+                        multiplayerState.useWebSocket = false;
+                        startRoomPolling();
+                        return;
+                    }
+                    roomSocket = socket;
+                    roomSocketReady = false;
+
+                    socket.onopen = () => {
+                        if (roomSocket !== socket) return;
+                        roomSocketRetry = 0;
+                        roomSocketSend({
+                            type: 'hello',
+                            room_id: multiplayerState.roomId,
+                            user_id: senderId,
+                            host_token: multiplayerState.isHost ? multiplayerState.hostToken : ''
+                        });
+                    };
+
+                    socket.onmessage = (event) => {
+                        if (roomSocket !== socket) return;
+                        let frame;
+                        try { frame = JSON.parse(event.data); } catch (_) { return; }
+                        if (!frame || typeof frame !== 'object') return;
+                        switch (frame.type) {
+                            case 'ready': {
+                                roomSocketReady = true;
+                                stopRoomPolling(); // WS 就绪后停轮询
+                                const resumeSince = roomLastMessageId;
+                                const readyLast = Number(frame.last_id) || 0;
+                                if (readyLast > roomLastMessageId) roomLastMessageId = readyLast;
+                                applyRoomPresence(frame.members);
+                                clearRoomPing();
+                                roomPingTimer = setInterval(() => roomSocketSend({ type: 'ping' }), 25000);
+                                roomSocketSend({ type: 'resume', since: resumeSince }); // 补齐 hello 前漏掉的消息
+                                multiplayerState.isConnected = true;
+                                break;
+                            }
+                            case 'message':
+                                applyRoomMessage({ id: frame.id, sender_id: frame.sender_id, payload: frame.payload });
+                                break;
+                            case 'presence':
+                                applyRoomPresence(frame.members);
+                                break;
+                            case 'resumed':
+                                if (Number(frame.last_id) > 0) roomLastMessageId = Math.max(roomLastMessageId, Number(frame.last_id) || 0);
+                                break;
+                            case 'pong':
+                                break;
+                            case 'error':
+                                handleRoomSocketError(frame);
+                                break;
+                        }
+                    };
+
+                    socket.onclose = () => {
+                        if (roomSocket !== socket) return;
+                        roomSocket = null;
+                        roomSocketReady = false;
+                        clearRoomPing();
+                        if (!multiplayerState.inRoom || !multiplayerState.roomId) return;
+                        startRoomPolling(); // 重连期间用轮询兜底，避免漏消息
+                        if (multiplayerState.useWebSocket) scheduleRoomSocketRetry();
+                    };
+
+                    socket.onerror = () => { /* 交由 onclose 处理重连 */ };
+                };
+
+                const closeRoomSocket = () => {
+                    if (roomSocketRetryTimer) { clearTimeout(roomSocketRetryTimer); roomSocketRetryTimer = null; }
+                    roomSocketRetry = 0;
+                    clearRoomPing();
+                    roomSocketReady = false;
+                    const socket = roomSocket;
+                    roomSocket = null;
+                    if (socket) {
+                        socket.onopen = socket.onmessage = socket.onerror = socket.onclose = null;
+                        try { socket.close(); } catch (_) {}
+                    }
                 };
 
                 // 快照条数与总字节上限：40/120KB 太小，实际跑局中几条长消息就会裁到只剩 2 条，导致重连只剩最新
@@ -9490,6 +9671,7 @@ ${buildInvestigatorProfile(inv)}
                     const normalizedRoomId = String(roomId || '').trim().toUpperCase();
                     if (!normalizedRoomId) throw new Error('Room ID is empty');
                     stopRoomPolling();
+                    closeRoomSocket();
 
                     const data = await roomApiRequest(options.reset ? 'create' : 'join', {
                         room_id: normalizedRoomId,
@@ -9513,7 +9695,8 @@ ${buildInvestigatorProfile(inv)}
                     }
                     multiplayerState.isConnected = true;
                     multiplayerState.inRoom = true;
-                    startRoomPolling();
+                    startRoomPolling(); // WS 就绪前先轮询兜底
+                    if (multiplayerState.useWebSocket) openRoomSocket();
                     
                     if (!multiplayerState.isHost) {
                         multiplayerState.syncReceived = false;
@@ -9619,6 +9802,7 @@ ${buildInvestigatorProfile(inv)}
                         } catch (e) { /* 退房广播失败不阻断本地清理 */ }
                     }
                     stopRoomPolling();
+                    closeRoomSocket();
                     roomLastMessageId = 0;
                     multiplayerState.inRoom = false;
                     multiplayerState.isConnected = false;
@@ -9744,6 +9928,7 @@ ${buildInvestigatorProfile(inv)}
                                 showToast('正在检查连接状态...', 'info');
                                 multiplayerState.inRoom = true;
                                 startRoomPolling();
+                                if (multiplayerState.useWebSocket) openRoomSocket();
                                 if (!multiplayerState.isHost) {
                                     broadcastMessage({ type: 'request_sync', userId: getRoomSessionId() });
                                 } else {
