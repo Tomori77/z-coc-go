@@ -2258,7 +2258,7 @@
                             <div v-for="d in danmakuItems" :key="d.id" class="z-danmaku text-sm font-bold text-mystic-gold" :style="{ top: d.top + '%', animationDuration: d.duration + 's' }">{{ d.name && (d.name + '：') }}{{ d.text }}</div>
                         </div>
                         <!-- 道具特效漂浮层（全员可见） -->
-                        <div v-if="itemsEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="absolute inset-0 pointer-events-none overflow-hidden z-[5000]">
+                        <div v-if="itemsEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="absolute inset-0 pointer-events-none overflow-hidden" style="z-index: 9000;">
                             <div v-for="fx in itemEffects" :key="fx.id" class="text-center" :class="fx.image ? 'z-item-fx--img' : 'z-item-fx'">
                                 <img v-if="fx.image" :src="fx.image" alt="" class="w-40 h-40 object-contain drop-shadow-[0_0_18px_rgba(220,60,80,0.5)]">
                                 <div v-else class="text-6xl">{{ fx.emoji }}</div>
