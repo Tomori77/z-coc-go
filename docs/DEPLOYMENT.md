@@ -2,7 +2,6 @@
 
 > 面向**按步骤操作即可完成部署**的使用者。
 > 默认推荐**方案一**（应用单独一个容器，连接已有的 PostgreSQL 容器）。
-> 相关文档：[`WS_PROTOCOL.md`](./WS_PROTOCOL.md)、仓库根 [`AGENTS.md`](../AGENTS.md)。
 
 ---
 
@@ -159,7 +158,7 @@ location /room_ws {
 - 必须透传 `Upgrade` 与 `Connection`。
 - `proxy_read_timeout` 建议显著大于心跳周期（≥ 1h）。
 - 若使用别名 `/ws/room`，需为其配置相同规则。
-- 完整协议与要求见 [`WS_PROTOCOL.md`](./WS_PROTOCOL.md) §9。
+- 应用的房间实时消息走 WebSocket（端点 `/room_ws`，别名 `/ws/room`），反代必须正确透传以维持长连接。
 
 ---
 

@@ -24,7 +24,7 @@ z-coc-go/
 ├─ tools/               api-smoke.ps1（验收）、build-mobile.mjs、optimize_art.py
 ├─ android/             Capacitor Android 壳
 ├─ Dockerfile           多阶段构建 → distroless
-└─ docs/                方案与任务清单
+└─ docs/                部署文档
 ```
 
 ## 本地运行
@@ -68,12 +68,8 @@ powershell -ExecutionPolicy Bypass -File tools/api-smoke.ps1 -BaseUrl http://127
 ## 状态
 
 - **Phase 0 / 1 / 2 / 3 完成**：Go 实现与 PHP 相同的 API 契约（smoke **27/27**），Go 托管静态前端（`go:embed` + 缓存/安全头/CSP/SPA 回退），WebSocket 实时房间（前端保留 HTTP 回退）。
-- 待办：Phase 4（好友功能、多人游戏大厅、管理员后台、战斗界面、地图），见 [`docs/GO_BACKEND_TASKS.md`](docs/GO_BACKEND_TASKS.md)。
+- 待办：Phase 4（好友功能、多人游戏大厅、管理员后台、战斗界面、地图）。
 
 ## 文档
 
-- [`AGENTS.md`](AGENTS.md) — 给接手的 AI / 开发者的「续作总结」（技术栈、目录、契约、进度、约定）
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — 部署指南（方案一 / 方案二、环境变量、反代、备份）
-- [`docs/GO_BACKEND_PLAN.md`](docs/GO_BACKEND_PLAN.md) — 技术选型、迁移计划、后续需求路线图
-- [`docs/GO_BACKEND_TASKS.md`](docs/GO_BACKEND_TASKS.md) — 可勾选的实现任务清单
-- [`docs/WS_PROTOCOL.md`](docs/WS_PROTOCOL.md) — WebSocket 房间协议

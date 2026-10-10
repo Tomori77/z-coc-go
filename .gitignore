@@ -17,3 +17,9 @@ www/
 tmp/
 assets/art/**/*.png
 assets/art/**/*.tif
+
+# Local development docs (kept locally, not published to the repository)
+/AGENTS.md
+/docs/GO_BACKEND_PLAN.md
+/docs/GO_BACKEND_TASKS.md
+/docs/WS_PROTOCOL.md
