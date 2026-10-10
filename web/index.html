@@ -2759,6 +2759,32 @@
                         </div>
                         
                         <button @click="createRoom()" class="w-full py-3 bg-gradient-to-r from-mystic-green to-teal-900 text-teal-100 font-bold rounded-lg shadow-lg hover:shadow-mystic-green/20 transition-all border border-mystic-green/50 uppercase tracking-widest">建立新信标 (创建房间)</button>
+                        <label class="flex items-center justify-center gap-2 mt-3 cursor-pointer select-none" @click.prevent="createRoomPublic = !createRoomPublic">
+                            <span class="w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold shrink-0" :class="createRoomPublic ? 'bg-mystic-green/80 border-mystic-green text-dark-950' : 'bg-dark-950 border-dark-600 text-transparent'">✓</span>
+                            <span class="text-xs text-slate-400">公开到大厅</span>
+                        </label>
+                     </div>
+
+                     <div class="mt-6 border-t border-dark-700 pt-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-sm font-bold text-slate-300 font-serif tracking-widest flex items-center"><span class="w-1 h-4 bg-mystic-green mr-2"></span>公开房间</h3>
+                            <button @click="refreshLobby()" :disabled="lobbyLoading" class="text-[11px] text-slate-500 hover:text-mystic-green transition-colors disabled:opacity-50" title="刷新列表">{{ lobbyLoading ? '刷新中...' : '刷新' }}</button>
+                        </div>
+                        <div v-if="publicRooms.length" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                            <div v-for="room in publicRooms" :key="room.room_id" class="flex items-center gap-3 p-2.5 bg-dark-800/60 border border-dark-700 rounded-lg hover:border-mystic-green/40 transition-colors">
+                                <img v-if="room.host_avatar" :src="room.host_avatar" class="w-8 h-8 rounded-full object-cover shrink-0 border border-dark-600" alt="">
+                                <div v-else class="w-8 h-8 rounded-full bg-dark-900 border border-dark-600 flex items-center justify-center text-slate-500 text-xs shrink-0">?</div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-sm text-slate-300 truncate">{{ room.host_name || room.host_id }}</div>
+                                    <div class="flex items-center gap-2 text-[11px] text-slate-500">
+                                        <span class="font-mono tracking-wider">{{ room.room_id }}</span>
+                                        <span>{{ room.member_count || 0 }} 人</span>
+                                    </div>
+                                </div>
+                                <button @click="joinPublicRoom(room)" class="shrink-0 px-3 py-1.5 bg-dark-800 text-mystic-green border border-mystic-green/30 rounded text-xs font-bold hover:bg-mystic-green hover:text-dark-950 transition-all">加入</button>
+                            </div>
+                        </div>
+                        <div v-else class="text-center py-6 text-slate-600 text-xs italic border border-dark-800 border-dashed rounded">暂无公开房间</div>
                      </div>
                      
                      <div class="mt-8 text-center">
@@ -2780,6 +2806,7 @@
                         <span class="text-lg font-mono font-bold text-mystic-green tracking-widest">{{ multiplayerState.roomId }}</span>
                         <svg class="w-4 h-4 text-slate-500 group-hover:text-mystic-green transition-colors ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
                     </div>
+                    <button v-if="cocState.mode === 'multi' && multiplayerState.inRoom && multiplayerState.isHost" @click="toggleRoomPublic()" class="ml-2 px-3 py-2 rounded-lg border text-xs font-bold transition-all" :class="roomIsPublic ? 'bg-mystic-green/10 border-mystic-green/40 text-mystic-green hover:bg-mystic-green hover:text-dark-950' : 'bg-dark-800/80 border-dark-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'">{{ roomIsPublic ? '已公开 · 取消公开' : '公开到大厅' }}</button>
                 </div>
 
                 <div class="max-w-4xl mx-auto space-y-8">
@@ -4781,6 +4808,8 @@
                     if (view !== 'settings') mobileSettingsSection.value = 'menu';
                     if (view === 'friends') { refreshFriends(); startFriendPolling(); }
                     else stopFriendPolling();
+                    if (view === 'multiplayer') { refreshLobby(); startLobbyPolling(); }
+                    else stopLobbyPolling();
                 });
                 const toasts = ref([]);
                 const confirmState = reactive({ show: false, title: '', message: '', confirmText: '确定', cancelText: '取消', resolve: null });
@@ -5806,6 +5835,7 @@
                 let joinRetryAttempts = 0;
                 let roomPollTimer = null;
                 let friendPollTimer = null;
+                let lobbyPollTimer = null;
                 let roomLastMessageId = 0;
                 let roomPollInFlight = false;
                 let lastRoomErrorAt = 0;
@@ -5816,6 +5846,7 @@
                 let roomSocketRetryTimer = null;
                 let roomPingTimer = null;
                 const friends = ref([]); const friendRequests = ref([]); const friendInvites = ref([]); const friendInput = ref(''); const showJoinInput = ref(false); const joinRoomId = ref(''); const joinAsSpectator = ref(false); const savedGames = ref([]);
+                const publicRooms = ref([]); const lobbyLoading = ref(false); const createRoomPublic = ref(false); const roomIsPublic = ref(false);
                 const savesFilter = ref('all');
                 const isSavesEditing = ref(false);
                 const folderOrder = ref([]); // 记录手动排序顺序
@@ -9679,12 +9710,14 @@ ${buildInvestigatorProfile(inv)}
 
                     const data = await roomApiRequest(options.reset ? 'create' : 'join', {
                         room_id: normalizedRoomId,
-                        user_id: getRoomSessionId()
+                        user_id: getRoomSessionId(),
+                        ...(options.reset ? { is_public: !!createRoomPublic.value } : {})
                     });
                     roomLastMessageId = Number(data.last_id) || 0;
                     multiplayerState.roomId = normalizedRoomId;
                     multiplayerState.hostAuthorizationFailed = false;
                     if (options.reset) {
+                        roomIsPublic.value = !!createRoomPublic.value;
                         multiplayerState.hostToken = String(data.host_token || '').trim();
                         if (!/^[a-f0-9]{64}$/i.test(multiplayerState.hostToken)) {
                             throw new Error('Room API did not return a valid host credential');
@@ -9922,6 +9955,55 @@ ${buildInvestigatorProfile(inv)}
                         friendPollTimer = null;
                     }
                 };
+                const refreshLobby = async () => {
+                    lobbyLoading.value = true;
+                    try {
+                        const data = await roomApiRequest('list_public');
+                        publicRooms.value = Array.isArray(data.rooms) ? data.rooms : [];
+                    } catch (e) {
+                        // 大厅刷新失败静默处理，不打断轮询
+                    } finally {
+                        lobbyLoading.value = false;
+                    }
+                };
+                const startLobbyPolling = () => {
+                    stopLobbyPolling();
+                    lobbyPollTimer = setInterval(() => { refreshLobby(); }, 6000);
+                };
+                const stopLobbyPolling = () => {
+                    if (lobbyPollTimer) {
+                        clearInterval(lobbyPollTimer);
+                        lobbyPollTimer = null;
+                    }
+                };
+                const joinPublicRoom = (room) => {
+                    if (!room || !room.room_id) return;
+                    joinRoomId.value = room.room_id;
+                    joinAsSpectator.value = false;
+                    joinRoom(room.room_id);
+                };
+                const toggleRoomPublic = async () => {
+                    if (!multiplayerState.isHost || !multiplayerState.inRoom || !multiplayerState.hostToken) {
+                        return showToast('仅房主可切换公开状态', 'warning');
+                    }
+                    const desired = !roomIsPublic.value;
+                    try {
+                        await roomApiRequest('set_public', {
+                            room_id: multiplayerState.roomId,
+                            user_id: getRoomSessionId(),
+                            host_token: multiplayerState.hostToken,
+                            is_public: desired
+                        });
+                        roomIsPublic.value = desired;
+                        showToast(desired ? '已公开到大厅' : '已取消公开', 'success');
+                        refreshLobby();
+                    } catch (e) {
+                        if (e && e.code === 'HOST_AUTH_FAILED') {
+                            return showToast('房主身份校验失败，无法切换公开状态', 'error');
+                        }
+                        showToast('切换公开状态失败，请重试', 'error');
+                    }
+                };
                 const addFriend = async () => {
                     if (!authState.isLoggedIn || !authState.token) return showToast('请先登录后再添加同伴', 'warning');
                     const target = String(friendInput.value || '').trim();
@@ -10031,6 +10113,7 @@ ${buildInvestigatorProfile(inv)}
                     cloudSyncState, cloudSyncStatusLabel, cloudSyncStatusClass, cloudSyncStatusDotClass, handleManualSync, resolveConflictKeepLocal, resolveConflictUseCloud, resolveConflictMerge,
                     kpRulesByCategory, editingRuleId, toggleRuleEdit, resetRule, addKpRule, deleteKpRule,
                     cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,
+                    publicRooms, lobbyLoading, createRoomPublic, roomIsPublic, joinPublicRoom, toggleRoomPublic, refreshLobby,
                     showMentionList, mentionCandidates, handleInput, selectMention, savedGames, savesFilter, groupedSaves, openFolders, toggleFolder, moveSaveToFolder, renameFolder, 
                     isSavesEditing, toggleSavesEditMode, moveFolder, deleteFolder, editFolderName, promptMoveToFolder, folderManagementState, closeFolderModal, confirmFolderAction, 
                     deleteFolderState, openDeleteFolderModal, closeDeleteFolderModal, confirmDissolveFolder, confirmDeleteAllInFolder, isRoundLocked, hasAiTeammates, visibleSkills, hasArchiveExtras, knownInfoToArray, knownInfoDialog, kickPlayer, joinAsSpectator, moveToSpectator, restorePlayer, releaseCharacter, unkickMember, applyReportToInvestigator,

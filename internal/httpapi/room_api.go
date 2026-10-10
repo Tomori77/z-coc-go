@@ -22,6 +22,10 @@ func (s *Server) handleRoomAPI(w http.ResponseWriter, r *http.Request) {
 		s.roomPush(w, r)
 	case "pull":
 		s.roomPull(w, r)
+	case "set_public":
+		s.roomSetPublic(w, r)
+	case "list_public":
+		s.roomListPublic(w, r)
 	default:
 		errorJSON(w, http.StatusNotFound, "Unknown action")
 	}
@@ -52,6 +56,8 @@ func (s *Server) roomCreate(w http.ResponseWriter, r *http.Request) {
 	hostToken := auth.NewToken()
 	hostHash := auth.Sha256Hex(hostToken)
 
+	isPublic := isTruthy(data["is_public"])
+
 	exists, err := s.store.RoomExistsActive(r.Context(), roomID, s.cfg.RoomTTLHours)
 	if err != nil {
 		errorJSON(w, http.StatusInternalServerError, "Room create failed")
@@ -61,7 +67,7 @@ func (s *Server) roomCreate(w http.ResponseWriter, r *http.Request) {
 		errorJSON(w, http.StatusConflict, "Room already exists")
 		return
 	}
-	if err := s.store.UpsertRoom(r.Context(), roomID, hostID, hostHash); err != nil {
+	if err := s.store.UpsertRoom(r.Context(), roomID, hostID, hostHash, isPublic); err != nil {
 		errorJSON(w, http.StatusInternalServerError, "Room create failed")
 		return
 	}
@@ -241,5 +247,80 @@ func (s *Server) roomPull(w http.ResponseWriter, r *http.Request) {
 		"messages": messages,
 		"presence": presence,
 		"now":      time.Now().Unix(),
+	})
+}
+
+func (s *Server) roomSetPublic(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	if !s.rateLimit(w, r, "room_set_public", 60, 300) {
+		return
+	}
+	data, ok := readJSONBody(w, r, maxRoomSmallBodyBytes)
+	if !ok {
+		return
+	}
+	roomID, ok := validate.RoomID(asString(data["room_id"]))
+	if !ok {
+		errorJSON(w, http.StatusBadRequest, "Invalid room id")
+		return
+	}
+	userID, ok := validate.SenderID(asString(data["user_id"]))
+	if !ok {
+		errorJSON(w, http.StatusBadRequest, "Invalid sender")
+		return
+	}
+	room, err := s.store.GetActiveRoom(r.Context(), roomID, s.cfg.RoomTTLHours)
+	if err != nil {
+		errorJSON(w, http.StatusInternalServerError, "Room not found or expired")
+		return
+	}
+	if room == nil {
+		errorJSON(w, http.StatusNotFound, "Room not found or expired")
+		return
+	}
+	if userID != room.HostID || room.HostTokenHash == nil || auth.Sha256Hex(asString(data["host_token"])) != *room.HostTokenHash {
+		writeJSON(w, http.StatusForbidden, map[string]any{
+			"status":  "error",
+			"code":    "HOST_AUTH_FAILED",
+			"message": "Only host can change visibility",
+		})
+		return
+	}
+	if err := s.store.SetRoomPublic(r.Context(), roomID, isTruthy(data["is_public"])); err != nil {
+		errorJSON(w, http.StatusInternalServerError, "Room update failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "success"})
+}
+
+func (s *Server) roomListPublic(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	if !s.rateLimit(w, r, "room_lobby", 240, 300) {
+		return
+	}
+	rooms, err := s.store.ListPublicRooms(r.Context(), s.cfg.RoomTTLHours)
+	if err != nil {
+		errorJSON(w, http.StatusInternalServerError, "Lobby list failed")
+		return
+	}
+	out := make([]map[string]any, 0, len(rooms))
+	for _, room := range rooms {
+		out = append(out, map[string]any{
+			"room_id":      room.RoomID,
+			"host_id":      room.HostID,
+			"host_name":    room.HostName,
+			"host_avatar":  room.HostAvatar,
+			"member_count": room.MemberCount,
+			"created_at":   room.CreatedAt,
+			"updated_at":   room.UpdatedAt,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": "success",
+		"rooms":  out,
 	})
 }

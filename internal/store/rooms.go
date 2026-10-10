@@ -31,16 +31,77 @@ func (s *Store) RoomExistsActive(ctx context.Context, roomID string, ttlHours in
 }
 
 // UpsertRoom inserts or refreshes a room, matching create's ON CONFLICT clause.
-func (s *Store) UpsertRoom(ctx context.Context, roomID, hostID, hostTokenHash string) error {
+func (s *Store) UpsertRoom(ctx context.Context, roomID, hostID, hostTokenHash string, isPublic bool) error {
 	_, err := s.Pool.Exec(ctx,
-		`INSERT INTO coc_rooms (room_id, host_id, host_token_hash, created_at, updated_at)
-		 VALUES ($1, $2, $3, NOW(), NOW())
+		`INSERT INTO coc_rooms (room_id, host_id, host_token_hash, is_public, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, NOW(), NOW())
 		 ON CONFLICT (room_id) DO UPDATE SET
 		   host_id = EXCLUDED.host_id,
 		   host_token_hash = EXCLUDED.host_token_hash,
+		   is_public = EXCLUDED.is_public,
 		   created_at = EXCLUDED.created_at,
 		   updated_at = EXCLUDED.updated_at`,
-		roomID, hostID, hostTokenHash)
+		roomID, hostID, hostTokenHash, isPublic)
+	return err
+}
+
+// PublicRoom is a visible lobby entry joined with the host's public profile.
+type PublicRoom struct {
+	RoomID      string
+	HostID      string
+	HostName    string
+	HostAvatar  string
+	MemberCount int64
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+// ListPublicRooms returns active public rooms, newest first (max 100).
+func (s *Store) ListPublicRooms(ctx context.Context, ttlHours int) ([]PublicRoom, error) {
+	// friendProfileColumns embeds a literal '%', so it must not pass through
+	// fmt.Sprintf; format the interval fragment separately instead.
+	interval := fmt.Sprintf(`NOW() - INTERVAL '%d hours'`, ttlHours)
+	rows, err := s.Pool.Query(ctx,
+		`SELECT r.room_id, r.host_id, `+friendProfileColumns+`,
+			(SELECT COUNT(*) FROM coc_room_presence p WHERE p.room_id = r.room_id AND p.last_seen >= NOW() - INTERVAL '120 seconds') AS member_count,
+			EXTRACT(EPOCH FROM r.created_at) AS created_at,
+			EXTRACT(EPOCH FROM r.updated_at) AS updated_at
+		 FROM coc_rooms r
+		 LEFT JOIN users u ON u.user_uuid = r.host_id
+		 LEFT JOIN user_data ud ON ud.user_id = u.user_uuid
+		 WHERE r.is_public = TRUE AND r.updated_at >= (`+interval+`)
+		 ORDER BY r.created_at DESC LIMIT 100`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []PublicRoom
+	for rows.Next() {
+		var room PublicRoom
+		var name, avatar *string
+		var createdAt, updatedAt float64
+		if err := rows.Scan(&room.RoomID, &room.HostID, &name, &avatar, &room.MemberCount, &createdAt, &updatedAt); err != nil {
+			return nil, err
+		}
+		if name != nil {
+			room.HostName = *name
+		}
+		if avatar != nil {
+			room.HostAvatar = *avatar
+		}
+		room.CreatedAt = int64(createdAt)
+		room.UpdatedAt = int64(updatedAt)
+		out = append(out, room)
+	}
+	return out, rows.Err()
+}
+
+// SetRoomPublic toggles a room's lobby visibility.
+func (s *Store) SetRoomPublic(ctx context.Context, roomID string, isPublic bool) error {
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE coc_rooms SET is_public = $2, updated_at = NOW() WHERE room_id = $1`,
+		roomID, isPublic)
 	return err
 }
 
