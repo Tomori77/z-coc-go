@@ -37,6 +37,7 @@ func main() {
 
 	limiter := ratelimit.New(st, logger)
 	api := httpapi.New(cfg, st, limiter, logger)
+	defer api.Close()
 
 	cleanupStop := make(chan struct{})
 	go func() {

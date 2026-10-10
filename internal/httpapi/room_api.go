@@ -3,61 +3,14 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/Tomori77/z-coc/internal/auth"
+	"github.com/Tomori77/z-coc/internal/roommsg"
 	"github.com/Tomori77/z-coc/internal/validate"
 )
 
 const maxRoomSmallBodyBytes = 64 * 1024
-
-// hostOnlyMessageTypes is the host-only whitelist from room_api.php.
-var hostOnlyMessageTypes = map[string]bool{
-	"sync_state":              true,
-	"sync_log_append":         true,
-	"update_last_message":     true,
-	"update_last_message_full": true,
-	"sync_module":             true,
-	"sync_investigators":      true,
-	"sync_assignments":        true,
-	"game_start":              true,
-	"game_ended":              true,
-	"room_closed":             true,
-	"grant_cot_access":        true,
-	"coj_toggle":              true,
-	"generating_start":        true,
-	"generating_end":          true,
-	"regenerate_start":        true,
-	"distribute_reports":      true,
-	"kick_player":             true,
-	"move_to_spectator":       true,
-}
-
-func isHostOnlyMessage(messageType string) bool { return hostOnlyMessageTypes[messageType] }
-
-// isPlayerLogAppend mirrors is_player_log_append().
-func isPlayerLogAppend(payload map[string]any, senderID string) bool {
-	if asString(payload["type"]) != "sync_log_append" {
-		return false
-	}
-	message, ok := payload["message"].(map[string]any)
-	if !ok {
-		return false
-	}
-	role := asString(message["role"])
-	if role != "user" && role != "whisper" {
-		return false
-	}
-	if isTruthy(message["isAiGenerated"]) {
-		return false
-	}
-	claimed := message["senderId"]
-	if claimed == nil {
-		claimed = message["id"]
-	}
-	return claimed != nil && asString(claimed) == senderID
-}
 
 func (s *Server) handleRoomAPI(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Query().Get("action") {
@@ -189,71 +142,25 @@ func (s *Server) roomPush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payloadRaw, present := data["payload"]
-	if !present || payloadRaw == nil {
-		errorJSON(w, http.StatusBadRequest, "Missing payload")
-		return
-	}
-	var payload map[string]any
-	switch t := payloadRaw.(type) {
-	case map[string]any:
-		payload = t
-	case []any:
-		payload = map[string]any{}
-	default:
-		errorJSON(w, http.StatusBadRequest, "Missing payload")
-		return
-	}
-
-	messageType := asString(payload["type"])
-	if messageType == "" || len(messageType) > 64 {
-		errorJSON(w, http.StatusBadRequest, "Invalid message type")
-		return
-	}
-
-	playerLogAppend := isPlayerLogAppend(payload, senderID)
-
-	if isHostOnlyMessage(messageType) && !playerLogAppend {
-		hostToken := strings.TrimSpace(asString(data["host_token"]))
-		hostTokenHash := auth.Sha256Hex(hostToken)
-		if senderID != room.HostID || hostToken == "" || room.HostTokenHash == nil || *room.HostTokenHash != hostTokenHash {
+	_, payloadJSON, verr := roommsg.ValidatePush(
+		payloadRaw, present, senderID, asString(data["host_token"]),
+		room.HostID, room.HostTokenHash, s.cfg.MaxPayloadBytes,
+	)
+	if verr != nil {
+		switch verr.Code {
+		case roommsg.CodeHostAuthFailed:
 			writeJSON(w, http.StatusForbidden, map[string]any{
 				"status":  "error",
-				"code":    "HOST_AUTH_FAILED",
-				"message": "Only host can send this message",
+				"code":    verr.Code,
+				"message": verr.Message,
 			})
-			return
+		case roommsg.CodeSenderMismatch:
+			errorJSON(w, http.StatusForbidden, verr.Message)
+		case roommsg.CodePayloadTooLarge:
+			errorJSON(w, http.StatusRequestEntityTooLarge, verr.Message)
+		default:
+			errorJSON(w, http.StatusBadRequest, verr.Message)
 		}
-	}
-
-	if !isHostOnlyMessage(messageType) || playerLogAppend {
-		var claimed any
-		if playerLogAppend {
-			message := payload["message"].(map[string]any)
-			claimed = message["senderId"]
-			if claimed == nil {
-				claimed = message["id"]
-			}
-		} else {
-			if user, ok := payload["user"].(map[string]any); ok {
-				claimed = user["id"]
-			}
-			if claimed == nil {
-				claimed = payload["userId"]
-			}
-		}
-		if claimed != nil && asString(claimed) != senderID {
-			errorJSON(w, http.StatusForbidden, "Sender mismatch")
-			return
-		}
-	}
-
-	payloadJSON, err := marshalJSON(payload)
-	if err != nil {
-		errorJSON(w, http.StatusBadRequest, "Payload encode failed")
-		return
-	}
-	if int64(len(payloadJSON)) > s.cfg.MaxPayloadBytes {
-		errorJSON(w, http.StatusRequestEntityTooLarge, "Payload too large")
 		return
 	}
 

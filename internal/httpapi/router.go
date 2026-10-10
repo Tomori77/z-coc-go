@@ -6,6 +6,7 @@ import (
 
 	"github.com/Tomori77/z-coc/internal/config"
 	"github.com/Tomori77/z-coc/internal/ratelimit"
+	"github.com/Tomori77/z-coc/internal/realtime"
 	"github.com/Tomori77/z-coc/internal/store"
 )
 
@@ -15,11 +16,19 @@ type Server struct {
 	store   *store.Store
 	limiter *ratelimit.Limiter
 	logger  *slog.Logger
+	hub     *realtime.Hub
 }
 
 // New constructs a Server.
 func New(cfg *config.Config, st *store.Store, limiter *ratelimit.Limiter, logger *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: st, limiter: limiter, logger: logger}
+	return &Server{cfg: cfg, store: st, limiter: limiter, logger: logger, hub: realtime.New(cfg, st, logger)}
+}
+
+// Close stops the WebSocket hub. Call it during graceful shutdown.
+func (s *Server) Close() {
+	if s.hub != nil {
+		s.hub.Close()
+	}
 }
 
 // wrap applies the common middleware chain (recover + request logging).
@@ -52,9 +61,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/dl/download.php", download)
 	mux.HandleFunc("/download.php", download)
 
+	// WebSocket 实时房间端点：必须在静态 catch-all 之前注册。
+	roomWS := s.wrap(s.handleRoomWS)
+	mux.HandleFunc("/room_ws", roomWS)
+	mux.HandleFunc("/ws/room", roomWS)
+
 	// Static frontend catch-all: registered last so the specific API patterns
 	// above always win. It also owns the SPA fallback and .php 404s.
 	mux.HandleFunc("/", s.wrap(s.handleStatic))
 
 	return mux
+}
+
+// handleRoomWS 把 /room_ws 升级交给每实例唯一的实时 Hub。
+func (s *Server) handleRoomWS(w http.ResponseWriter, r *http.Request) {
+	s.hub.ServeHTTP(w, r)
 }

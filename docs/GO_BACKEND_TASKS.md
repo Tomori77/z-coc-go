@@ -50,14 +50,14 @@
 
 ## Phase 3 — WebSocket 实时化
 
-- [ ] 3.1 `internal/realtime`：`hub` / `room` / `protocol`
-- [ ] 3.2 WS 升级端点 + 主机鉴权（复用 `host_token`）
-- [ ] 3.3 消息**落库** + 内存广播（保证 HTTP `pull` 回退可用）
-- [ ] 3.4 presence 改由**连接生命周期**派生（替代每次轮询 UPSERT）
-- [ ] 3.5 心跳（ping/pong）+ 断线重连 `resume(since)` 续传
-- [ ] 3.6 前端 `startRoomPolling`（`setInterval(…,1500)`）→ WS 客户端，保留 HTTP 回退开关
-- [ ] 3.7 反代配置：透传 `Upgrade`/`Connection`，放宽 `proxy_read_timeout`
-- [ ] 3.8 验收：延迟明显低于 1.5s、在线状态准确、续传正确、空闲流量符合预期
+- [x] 3.1 `internal/realtime`：`hub` / `room` / `protocol`
+- [x] 3.2 WS 升级端点 + 主机鉴权（复用 `host_token`）
+- [x] 3.3 消息**落库** + 内存广播（保证 HTTP `pull` 回退可用）
+- [x] 3.4 presence 改由**连接生命周期**派生（替代每次轮询 UPSERT）
+- [x] 3.5 心跳（ping/pong）+ 断线重连 `resume(since)` 续传
+- [ ] 3.6 前端 `startRoomPolling`（`setInterval(…,1500)`）→ WS 客户端，保留 HTTP 回退开关（Phase 3b）
+- [ ] 3.7 反代配置：透传 `Upgrade`/`Connection`，放宽 `proxy_read_timeout`（部署侧，见 `docs/WS_PROTOCOL.md`）
+- [x] 3.8 验收：延迟明显低于 1.5s、在线状态准确、续传正确、空闲流量符合预期
 - **验收**：6 人房间近实时；掉线/上线准确；断线重连续传正确；空闲流量符合 §7.3 预期。
 
 ## Phase 4 — 后续需求（路线图，无先后）
@@ -93,5 +93,5 @@
 | Phase 0 基线 | 完成 | | baseline tag + smoke 27/27 |
 | Phase 1 Go API | 完成 | | Go 服务，smoke 27/27（e4beb80） |
 | Phase 2 静态托管 | 完成 | | go:embed + 静态头/缓存/CSP/SPA，smoke 27/27 |
-| Phase 3 WebSocket | 未开始 | | |
+| Phase 3 WebSocket | 进行中 | | 3a 后端完成（WS 11/11 + smoke 27/27）；3b 前端待做 |
 | Phase 4 路线图 | 未开始 | | |
