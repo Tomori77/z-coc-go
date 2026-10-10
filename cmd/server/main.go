@@ -41,7 +41,7 @@ func main() {
 		logger.Info("promoted admin accounts", "count", promoted)
 	}
 
-	limiter := ratelimit.New(st, logger)
+	limiter := ratelimit.New(st, logger, cfg.RateLimitDisabled)
 	api := httpapi.New(cfg, st, limiter, logger)
 	defer api.Close()
 

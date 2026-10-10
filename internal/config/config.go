@@ -43,6 +43,21 @@ type Config struct {
 	MaxRoomMessages int
 	PollLimit       int
 	ListLimit       int
+
+	// RateLimitDisabled turns the fixed-window limiter into a no-op. It is a
+	// test-only affordance (env RATE_LIMIT_DISABLED) and must stay false in
+	// production.
+	RateLimitDisabled bool
+}
+
+// isTruthyEnv reports whether an env value is an affirmative switch.
+func isTruthyEnv(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 type parsedURL struct {
@@ -169,6 +184,8 @@ func Load() *Config {
 		MaxRoomMessages: DefaultMaxRoomMessages,
 		PollLimit:       DefaultPollLimit,
 		ListLimit:       DefaultListLimit,
+
+		RateLimitDisabled: isTruthyEnv(os.Getenv("RATE_LIMIT_DISABLED")),
 	}
 }
 

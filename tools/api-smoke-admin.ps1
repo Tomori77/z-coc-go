@@ -256,6 +256,29 @@ Assert-True ($meUser.Status -eq 200 -and $meUser.Body.role -eq 'user') 'me with 
 $meNoToken = Invoke-Api -Method GET -Path 'db_api.php' -Query @{ action = 'me' }
 Assert-True ($meNoToken.Status -eq 401) 'me without token returns 401'
 
+Write-Host "[settings]" -ForegroundColor Yellow
+$settingsGet = Invoke-Api -Method GET -Path 'admin_api.php' -Query @{ action = 'settings.get' } -Token $adminToken
+Assert-True ($settingsGet.Status -eq 200 -and $settingsGet.Body.status -eq 'success') 'settings.get returns 200'
+Assert-True ($null -ne $settingsGet.Body.settings.'chat.player.enabled') 'settings.get includes chat.player.enabled'
+Assert-True ($null -ne $settingsGet.Body.settings.'items.cooldown_ms') 'settings.get includes items.cooldown_ms'
+Assert-True (@($settingsGet.Body.defs).Count -ge 1) 'settings.get returns non-empty defs'
+
+$setOff = Invoke-Api -Method POST -Path 'admin_api.php' -Query @{ action = 'settings.set' } -Token $adminToken -Body @{ settings = @{ 'chat.player.enabled' = $false } }
+Assert-True ($setOff.Status -eq 200 -and $setOff.Body.status -eq 'success') 'settings.set disables chat.player.enabled'
+$publicOff = Invoke-Api -Method GET -Path 'config_api.php' -Query @{ action = 'settings' }
+Assert-True ($publicOff.Status -eq 200 -and $publicOff.Body.settings.'chat.player.enabled' -eq $false) 'public settings reflects chat.player.enabled=false'
+
+$setOn = Invoke-Api -Method POST -Path 'admin_api.php' -Query @{ action = 'settings.set' } -Token $adminToken -Body @{ settings = @{ 'chat.player.enabled' = $true } }
+Assert-True ($setOn.Status -eq 200 -and $setOn.Body.status -eq 'success') 'settings.set re-enables chat.player.enabled'
+$publicOn = Invoke-Api -Method GET -Path 'config_api.php' -Query @{ action = 'settings' }
+Assert-True ($publicOn.Status -eq 200 -and $publicOn.Body.settings.'chat.player.enabled' -eq $true) 'public settings reflects chat.player.enabled=true'
+
+$setUnknown = Invoke-Api -Method POST -Path 'admin_api.php' -Query @{ action = 'settings.set' } -Token $adminToken -Body @{ settings = @{ 'does.not.exist' = $true } }
+Assert-True ($setUnknown.Status -eq 400) 'settings.set with unknown key returns 400'
+
+$setForbidden = Invoke-Api -Method POST -Path 'admin_api.php' -Query @{ action = 'settings.set' } -Token $tokenC -Body @{ settings = @{ 'chat.player.enabled' = $false } }
+Assert-True ($setForbidden.Status -eq 403) 'settings.set with non-admin token returns 403'
+
 Write-Host ""
 $color = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
 Write-Host ("Result: {0} passed, {1} failed" -f $script:Pass, $script:Fail) -ForegroundColor $color

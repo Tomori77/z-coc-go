@@ -14,18 +14,23 @@ var scopeSanitizeRe = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
 // Limiter implements the DB-backed fixed-window limiter from lib/RateLimit.php.
 type Limiter struct {
-	store  *store.Store
-	logger *slog.Logger
+	store    *store.Store
+	logger   *slog.Logger
+	disabled bool
 }
 
-// New builds a Limiter.
-func New(s *store.Store, logger *slog.Logger) *Limiter {
-	return &Limiter{store: s, logger: logger}
+// New builds a Limiter. When disabled is true it always allows requests
+// (test-only affordance via RATE_LIMIT_DISABLED; production leaves it false).
+func New(s *store.Store, logger *slog.Logger, disabled bool) *Limiter {
+	return &Limiter{store: s, logger: logger, disabled: disabled}
 }
 
 // Check consumes a hit for ip:scope. It returns allowed=false and a positive
 // Retry-After value (seconds) when the limit is exceeded.
 func (l *Limiter) Check(ctx context.Context, ip, scope string, limit, windowSeconds int) (allowed bool, retryAfter int) {
+	if l.disabled {
+		return true, 0
+	}
 	scope = scopeSanitizeRe.ReplaceAllString(scope, "")
 	if limit < 1 {
 		limit = 1

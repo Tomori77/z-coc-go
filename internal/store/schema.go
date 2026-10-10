@@ -124,6 +124,11 @@ var schemaStatements = []string{
 		created_at TIMESTAMP NOT NULL DEFAULT NOW()
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_coc_admin_audit_created ON coc_admin_audit (created_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS coc_app_settings (
+		key VARCHAR(64) PRIMARY KEY,
+		value TEXT NOT NULL,
+		updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+	)`,
 }
 
 // EnsureSchema creates every table/index if missing. It is safe to call once at

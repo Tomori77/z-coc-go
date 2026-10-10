@@ -3,9 +3,11 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/Tomori77/z-coc/internal/auth"
+	"github.com/Tomori77/z-coc/internal/settings"
 	"github.com/Tomori77/z-coc/internal/validate"
 )
 
@@ -52,6 +54,10 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.adminModuleDelete(w, r, adminUUID)
 	case "audit.list":
 		s.adminAuditList(w, r)
+	case "settings.get":
+		s.adminSettingsGet(w, r)
+	case "settings.set":
+		s.adminSettingsSet(w, r, adminUUID)
 	default:
 		errorJSON(w, http.StatusNotFound, "Unknown action")
 	}
@@ -320,6 +326,14 @@ func truncateAuditTarget(s string) string {
 	return s
 }
 
+// truncateAuditDetail clamps an audit detail string to a sane length.
+func truncateAuditDetail(s string) string {
+	if len(s) > 500 {
+		return s[:500]
+	}
+	return s
+}
+
 func (s *Server) adminUserDelete(w http.ResponseWriter, r *http.Request, adminUUID string) {
 	if !requireMethod(w, r, http.MethodPost) {
 		return
@@ -487,4 +501,77 @@ func (s *Server) adminAuditList(w http.ResponseWriter, r *http.Request) {
 		"entries": out,
 		"total":   total,
 	})
+}
+
+// adminSettingsGet returns every whitelisted setting (defaults merged with
+// stored overrides) plus the definition list used by the admin UI.
+func (s *Server) adminSettingsGet(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	stored, err := s.store.GetAppSettings(r.Context())
+	if err != nil {
+		errorJSON(w, http.StatusInternalServerError, "设置读取失败")
+		return
+	}
+	values := make(map[string]any, len(settings.Definitions))
+	defs := make([]map[string]any, 0, len(settings.Definitions))
+	for _, def := range settings.Definitions {
+		raw := def.Default
+		if value, ok := stored[def.Key]; ok {
+			raw = value
+		}
+		values[def.Key] = settings.Decode(def, raw)
+		defs = append(defs, map[string]any{
+			"key":     def.Key,
+			"kind":    string(def.Kind),
+			"default": settings.Decode(def, def.Default),
+			"public":  def.Public,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":   "success",
+		"settings": values,
+		"defs":     defs,
+	})
+}
+
+// adminSettingsSet validates and persists a batch of setting overrides. Every
+// key must be whitelisted and every value must match its declared kind.
+func (s *Server) adminSettingsSet(w http.ResponseWriter, r *http.Request, adminUUID string) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	data, ok := readJSONBody(w, r, maxAdminBodyBytes)
+	if !ok {
+		return
+	}
+	raw, ok := data["settings"].(map[string]any)
+	if !ok || len(raw) == 0 {
+		errorJSON(w, http.StatusBadRequest, "No settings provided")
+		return
+	}
+	values := make(map[string]string, len(raw))
+	keys := make([]string, 0, len(raw))
+	for key, value := range raw {
+		def, known := settings.Find(key)
+		if !known {
+			errorJSON(w, http.StatusBadRequest, "Unknown setting: "+key)
+			return
+		}
+		stored, valid := settings.Validate(def.Key, value)
+		if !valid {
+			errorJSON(w, http.StatusBadRequest, "Invalid value for "+key)
+			return
+		}
+		values[key] = stored
+		keys = append(keys, key)
+	}
+	if err := s.store.UpsertAppSettings(r.Context(), values); err != nil {
+		errorJSON(w, http.StatusInternalServerError, "设置保存失败")
+		return
+	}
+	sort.Strings(keys)
+	s.auditAdmin(r, adminUUID, "settings.set", "", truncateAuditDetail(strings.Join(keys, ",")))
+	writeJSON(w, http.StatusOK, map[string]any{"status": "success"})
 }

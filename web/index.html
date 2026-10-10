@@ -2080,7 +2080,7 @@
                     <svg class="w-5 h-5 mr-3 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
                     <span class="relative z-10">异闻酒馆</span>
                 </button>
-                <button @click="currentView = 'friends'; showMobileMenu = false" :class="['z-sidebar-tab w-full flex items-center px-4 py-3.5 rounded-lg transition-all duration-300 font-bold tracking-wide border group relative overflow-hidden', currentView === 'friends' ? 'z-active bg-blue-900/20 border-blue-500/30 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-800 hover:border-dark-700']">
+                <button v-if="appConfig['friends.enabled'] !== false" @click="currentView = 'friends'; showMobileMenu = false" :class="['z-sidebar-tab w-full flex items-center px-4 py-3.5 rounded-lg transition-all duration-300 font-bold tracking-wide border group relative overflow-hidden', currentView === 'friends' ? 'z-active bg-blue-900/20 border-blue-500/30 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-800 hover:border-dark-700']">
                     <div class="absolute inset-0 bg-gradient-to-r from-blue-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <svg class="w-5 h-5 mr-3 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                     <span class="relative z-10">收音机调频</span>
@@ -2782,6 +2782,35 @@
                             </aside>
                         </div>
 
+                        <!-- 群聊 Dock（玩家/旁观者各自隔离，独立于 AI 对话日志） -->
+                        <div v-if="cocState.mode === 'multi' && multiplayerState.inRoom && chatEnabled" class="px-2 pt-2 z-20 relative">
+                            <div class="max-w-4xl mx-auto w-full bg-dark-900 border border-dark-800 rounded-lg overflow-hidden">
+                                <button @click="showGroupChat = !showGroupChat" class="w-full flex items-center justify-between px-3 py-2 text-xs text-slate-400 hover:text-mystic-gold transition-colors">
+                                    <span class="flex items-center gap-2"><span>💬 群聊</span><span class="text-slate-600 font-mono">({{ multiplayerState.isSpectator ? spectatorChat.length : groupChat.length }})</span></span>
+                                    <svg :class="showGroupChat ? 'rotate-180' : ''" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                                </button>
+                                <div v-if="showGroupChat" class="border-t border-dark-800">
+                                    <div ref="groupChatScrollEl" class="max-h-40 overflow-y-auto custom-scrollbar px-3 py-2 space-y-1 text-xs">
+                                        <template v-if="multiplayerState.isSpectator">
+                                            <div v-if="spectatorChat.length === 0" class="text-slate-600 italic">暂无消息</div>
+                                            <div v-for="m in spectatorChat" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
+                                        </template>
+                                        <template v-else>
+                                            <div v-if="groupChat.length === 0" class="text-slate-600 italic">暂无消息</div>
+                                            <div v-for="m in groupChat" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
+                                        </template>
+                                    </div>
+                                    <div v-if="multiplayerState.isSpectator" class="flex gap-2 p-2 border-t border-dark-800">
+                                        <input v-model="spectatorChatInput" @keydown.enter.prevent="sendSpectatorChat" placeholder="旁观者群聊..." class="flex-1 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
+                                        <button @click="sendSpectatorChat" class="px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
+                                    </div>
+                                    <div v-else class="flex gap-2 p-2 border-t border-dark-800">
+                                        <input v-model="groupChatInput" @keydown.enter.prevent="sendGroupChat" placeholder="玩家群聊..." class="flex-1 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
+                                        <button @click="sendGroupChat" class="px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <!-- Input -->
                         <div class="p-2 bg-dark-900 border-t border-dark-800 z-20 relative safe-pb">
                             <!-- Mention Auto-complete List -->
@@ -2852,7 +2881,7 @@
                                     <div class="mt-4 inline-flex items-center text-xs font-bold px-3 py-1 rounded border" :class="multiplayerState.inRoom ? 'bg-mystic-green/10 text-mystic-green border-mystic-green/30' : 'bg-red-900/10 text-red-400 border-red-900/30'">{{ multiplayerState.inRoom ? `已连接: ${multiplayerState.roomId}` : '未连接房间' }}</div>
                                 </div>
                             </div>
-                            <div @click="currentView = 'lobby'" @keydown.enter.prevent="currentView = 'lobby'" @keydown.space.prevent="currentView = 'lobby'" role="button" tabindex="0" class="z-mode-choice z-mode-choice--lobby group glass-panel p-8 border border-dark-700 hover:border-mystic-green transition-all cursor-pointer relative overflow-hidden">
+                            <div v-if="appConfig['lobby.enabled'] !== false" @click="currentView = 'lobby'" @keydown.enter.prevent="currentView = 'lobby'" @keydown.space.prevent="currentView = 'lobby'" role="button" tabindex="0" class="z-mode-choice z-mode-choice--lobby group glass-panel p-8 border border-dark-700 hover:border-mystic-green transition-all cursor-pointer relative overflow-hidden">
                                 <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><svg class="w-32 h-32 text-mystic-green" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 00-10 10 10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2zm0 4a6 6 0 016 6 6 6 0 01-6 6 6 6 0 01-6-6 6 6 0 016-6zm0 4a2 2 0 00-2 2 2 2 0 002 2 2 2 0 002-2 2 2 0 00-2-2z"/></svg></div>
                                 <div class="relative z-10">
                                     <div class="w-16 h-16 bg-dark-900 text-mystic-green border border-dark-700 rounded flex items-center justify-center mb-6 shadow-lg group-hover:shadow-mystic-green/20 transition-shadow"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 5.303a3.75 3.75 0 000-5.303m-7.425 7.425a6 6 0 010-8.485m9.546 0a6 6 0 010 8.485M12 12h.01"></path></svg></div>
@@ -5868,6 +5897,20 @@
                     generateResponse();
                 };
                 const cocInput = ref(''); const cocInputRef = ref(null); const cocChatContainer = ref(null); const isGenerating = ref(false);
+                // 服务端应用设置：用于按开关隐藏群聊/大厅/好友等入口，缺省全部开启
+                const appConfig = ref({ 'chat.player.enabled': true, 'chat.spectator.enabled': true, 'danmaku.enabled': true, 'danmaku.cooldown_ms': 2000, 'items.enabled': true, 'items.cooldown_ms': 3000, 'items.defs': [], 'lobby.enabled': true, 'friends.enabled': true });
+                const loadAppConfig = async () => {
+                    try {
+                        const res = await fetch(window.ZCOC_RUNTIME.apiUrl('config_api.php?action=settings'));
+                        const data = await res.json().catch(() => ({}));
+                        if (data && data.status === 'success' && data.settings && typeof data.settings === 'object') {
+                            appConfig.value = Object.assign({}, appConfig.value, data.settings);
+                        }
+                    } catch (e) { /* keep defaults on failure */ }
+                };
+                const chatEnabled = Vue.computed(() => multiplayerState.isSpectator ? appConfig.value['chat.spectator.enabled'] !== false : appConfig.value['chat.player.enabled'] !== false);
+                // 房间群聊：玩家与旁观者各自隔离的轻量频道，独立于 cocState.log 的 AI 对话
+                const groupChat = ref([]); const groupChatInput = ref(''); const spectatorChat = ref([]); const spectatorChatInput = ref(''); const showGroupChat = ref(false); const groupChatScrollEl = ref(null);
                 // 仅在用户已经接近底部时跟随新消息，避免生成长正文时打断阅读。
                 const chatAutoScroll = ref(true);
                 const handleChatScroll = () => {
@@ -9311,6 +9354,36 @@ ${buildInvestigatorProfile(inv)}
                     }
                 };
 
+                // ---- 房间群聊（玩家频道 / 旁观者频道各自隔离）----
+                const scrollGroupChatToBottom = () => {
+                    Vue.nextTick(() => {
+                        const el = groupChatScrollEl.value;
+                        if (el) el.scrollTop = el.scrollHeight;
+                    });
+                };
+                const sendGroupChat = () => {
+                    if (!multiplayerState.inRoom) return showToast('请先进入房间', 'warning');
+                    if (multiplayerState.isSpectator) return showToast('旁观者请使用旁观者群聊', 'warning');
+                    const text = groupChatInput.value.trim();
+                    if (!text) return;
+                    const msg = { id: `gc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text, name: user.name, senderId: getRoomSessionId() };
+                    groupChat.value.push(msg);
+                    groupChatInput.value = '';
+                    scrollGroupChatToBottom();
+                    broadcastMessage({ type: 'group_chat', text: msg.text, user: { id: getRoomSessionId(), name: user.name } });
+                };
+                const sendSpectatorChat = () => {
+                    if (!multiplayerState.inRoom) return showToast('请先进入房间', 'warning');
+                    if (!multiplayerState.isSpectator) return showToast('玩家请使用玩家群聊', 'warning');
+                    const text = spectatorChatInput.value.trim();
+                    if (!text) return;
+                    const msg = { id: `sc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text, name: user.name, senderId: getRoomSessionId() };
+                    spectatorChat.value.push(msg);
+                    spectatorChatInput.value = '';
+                    scrollGroupChatToBottom();
+                    broadcastMessage({ type: 'spectator_chat', text: msg.text, user: { id: getRoomSessionId(), name: user.name } });
+                };
+
                 const stopRoomPolling = () => {
                     if (roomPollTimer) {
                         clearInterval(roomPollTimer);
@@ -9902,6 +9975,24 @@ ${buildInvestigatorProfile(inv)}
                                 }
                             }
                             break;
+                        case 'group_chat':
+                            if (!multiplayerState.isSpectator && typeof payload.text === 'string' && payload.text) {
+                                const incoming = payload.user || {};
+                                if (incoming.id !== getRoomSessionId()) {
+                                    groupChat.value.push({ id: `gc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text: payload.text, name: incoming.name, senderId: incoming.id });
+                                    scrollGroupChatToBottom();
+                                }
+                            }
+                            break;
+                        case 'spectator_chat':
+                            if (multiplayerState.isSpectator && typeof payload.text === 'string' && payload.text) {
+                                const incoming = payload.user || {};
+                                if (incoming.id !== getRoomSessionId()) {
+                                    spectatorChat.value.push({ id: `sc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text: payload.text, name: incoming.name, senderId: incoming.id });
+                                    scrollGroupChatToBottom();
+                                }
+                            }
+                            break;
                     }
                 };
 
@@ -10320,6 +10411,10 @@ ${buildInvestigatorProfile(inv)}
                     
                     // 默认开启后端初始化与会话检查
                     initBackend();
+
+                    // 拉取服务端应用设置（功能开关），并每 60 秒刷新一次
+                    loadAppConfig();
+                    setInterval(loadAppConfig, 60000);
                     
                     // 自动登录与权限检查
                     await checkAuth();
@@ -10357,6 +10452,8 @@ ${buildInvestigatorProfile(inv)}
                     cloudSyncState, cloudSyncStatusLabel, cloudSyncStatusClass, cloudSyncStatusDotClass, handleManualSync, resolveConflictKeepLocal, resolveConflictUseCloud, resolveConflictMerge,
                     kpRulesByCategory, editingRuleId, toggleRuleEdit, resetRule, addKpRule, deleteKpRule,
                     cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,
+                    appConfig, loadAppConfig, chatEnabled,
+                    groupChat, groupChatInput, spectatorChat, spectatorChatInput, showGroupChat, groupChatScrollEl, sendGroupChat, sendSpectatorChat,
                     publicRooms, lobbyLoading, createRoomPublic, roomIsPublic, joinPublicRoom, toggleRoomPublic, refreshLobby, renameRoom,
                     showMentionList, mentionCandidates, handleInput, selectMention, savedGames, savesFilter, groupedSaves, openFolders, toggleFolder, moveSaveToFolder, renameFolder, 
                     isSavesEditing, toggleSavesEditMode, moveFolder, deleteFolder, editFolderName, promptMoveToFolder, folderManagementState, closeFolderModal, confirmFolderAction, 

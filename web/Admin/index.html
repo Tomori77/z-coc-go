@@ -360,6 +360,71 @@
                     </div>
                 </div>
 
+                <!-- Settings -->
+                <div v-if="tab === 'settings'">
+                    <div class="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+                        <span class="text-xs text-slate-500">编辑服务器应用设置，保存后立即生效</span>
+                        <div class="flex items-center gap-2 md:ml-auto">
+                            <button @click="reloadSettings" :disabled="settingsBusy || settingsLoading"
+                                    class="px-3 py-1.5 rounded-lg bg-dark-800 border border-dark-700 text-xs font-bold text-slate-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">重新加载</button>
+                            <button @click="saveSettings" :disabled="settingsBusy || settingsLoading"
+                                    class="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                {{ settingsBusy ? '保存中…' : '保存' }}
+                            </button>
+                        </div>
+                    </div>
+                    <div v-if="settingsLoading" class="text-center py-16 text-purple-400 animate-pulse">正在加载设置…</div>
+                    <div v-else class="space-y-4">
+                        <div v-for="g in settingsGroups" :key="g.group" class="bg-dark-900 border border-dark-800 rounded-xl overflow-hidden">
+                            <div class="px-4 py-2 bg-dark-800/50 border-b border-dark-800 text-xs font-bold text-purple-400 uppercase tracking-wider">{{ g.group }}</div>
+                            <div class="divide-y divide-dark-800">
+                                <div v-for="row in g.rows" :key="row.key" class="px-4 py-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                                    <div class="md:w-56 shrink-0">
+                                        <div class="text-sm text-slate-200">{{ row.label }}</div>
+                                        <div class="text-[10px] font-mono text-slate-600">{{ row.key }}</div>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <label v-if="row.kind === 'bool'" class="inline-flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" class="accent-purple-500 cursor-pointer w-4 h-4" v-model="settingsEdit[row.key]">
+                                            <span class="text-xs text-slate-400">{{ settingsEdit[row.key] ? '启用' : '禁用' }}</span>
+                                        </label>
+                                        <input v-else-if="row.kind === 'int'" type="number" v-model.number="settingsEdit[row.key]"
+                                               class="w-40 bg-dark-950 border border-dark-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-purple-500 transition-colors">
+                                        <div v-else-if="row.key === 'items.defs'" class="space-y-2">
+                                            <div class="overflow-x-auto border border-dark-800 rounded-lg">
+                                                <table class="w-full text-xs text-left whitespace-nowrap">
+                                                    <thead class="bg-dark-900 text-slate-500">
+                                                        <tr>
+                                                            <th class="px-2 py-1.5 font-medium">表情</th>
+                                                            <th class="px-2 py-1.5 font-medium">名称</th>
+                                                            <th class="px-2 py-1.5 font-medium">键(key)</th>
+                                                            <th class="px-2 py-1.5 font-medium text-right">操作</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-dark-800">
+                                                        <tr v-for="(item, idx) in settingsDefsEdit" :key="idx">
+                                                            <td class="px-2 py-1.5"><input v-model="item.emoji" class="w-16 bg-dark-950 border border-dark-700 rounded px-2 py-1 text-center outline-none focus:border-purple-500"></td>
+                                                            <td class="px-2 py-1.5"><input v-model="item.label" placeholder="名称" class="w-40 bg-dark-950 border border-dark-700 rounded px-2 py-1 outline-none focus:border-purple-500"></td>
+                                                            <td class="px-2 py-1.5"><input v-model="item.key" placeholder="自动生成" class="w-40 bg-dark-950 border border-dark-700 rounded px-2 py-1 font-mono text-slate-400 outline-none focus:border-purple-500"></td>
+                                                            <td class="px-2 py-1.5 text-right"><button @click="removeItemDef(idx)" class="px-2 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-900/30 text-[11px] transition-colors">删除</button></td>
+                                                        </tr>
+                                                        <tr v-if="settingsDefsEdit.length === 0">
+                                                            <td colspan="4" class="px-2 py-6 text-center text-slate-600">暂无道具，点击下方新增</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <button @click="addItemDef" class="px-3 py-1 rounded border border-dark-700 text-slate-300 hover:text-white text-xs transition-colors">+ 新增道具</button>
+                                        </div>
+                                        <textarea v-else v-model="settingsJsonText[row.key]" rows="4" spellcheck="false"
+                                                  class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 outline-none focus:border-purple-500 transition-colors"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -409,7 +474,8 @@
                     { key: 'users', label: '用户' },
                     { key: 'rooms', label: '房间' },
                     { key: 'modules', label: '模组' },
-                    { key: 'audit', label: '审计' }
+                    { key: 'audit', label: '审计' },
+                    { key: 'settings', label: '设置' }
                 ];
                 const tab = ref('overview');
 
@@ -457,6 +523,170 @@
                 const auditOffset = ref(0);
                 const auditLoading = ref(false);
                 const auditLoaded = ref(false);
+
+                const settings = ref({});
+                const settingsDefs = ref([]);
+                const settingsBusy = ref(false);
+                const settingsLoading = ref(false);
+                const settingsLoaded = ref(false);
+                const settingsEdit = ref({});
+                const settingsDefsEdit = ref([]);
+                const settingsJsonText = ref({});
+
+                const SETTINGS_META = {
+                    'chat.player.enabled': { label: '玩家群聊', kind: 'bool', group: '聊天' },
+                    'chat.spectator.enabled': { label: '旁观者群聊', kind: 'bool', group: '聊天' },
+                    'danmaku.enabled': { label: '弹幕', kind: 'bool', group: '弹幕' },
+                    'danmaku.cooldown_ms': { label: '弹幕冷却(ms)', kind: 'int', group: '弹幕' },
+                    'items.enabled': { label: '道具', kind: 'bool', group: '道具' },
+                    'items.cooldown_ms': { label: '道具冷却(ms)', kind: 'int', group: '道具' },
+                    'items.defs': { label: '道具清单', kind: 'json', group: '道具' },
+                    'lobby.enabled': { label: '游戏大厅', kind: 'bool', group: '大厅 / 社交' },
+                    'friends.enabled': { label: '好友功能', kind: 'bool', group: '大厅 / 社交' }
+                };
+
+                const settingKind = (key) => {
+                    const def = settingsDefs.value.find(d => d.key === key);
+                    if (def && def.kind) return def.kind;
+                    if (SETTINGS_META[key]) return SETTINGS_META[key].kind;
+                    const v = settings.value[key];
+                    if (typeof v === 'boolean') return 'bool';
+                    if (typeof v === 'number') return 'int';
+                    return 'json';
+                };
+
+                const settingsRows = computed(() => {
+                    const seen = new Set();
+                    const rows = [];
+                    Object.keys(SETTINGS_META).forEach(key => {
+                        const meta = SETTINGS_META[key];
+                        const def = settingsDefs.value.find(d => d.key === key);
+                        rows.push({ key, label: meta.label, group: meta.group, kind: (def && def.kind) || meta.kind });
+                        seen.add(key);
+                    });
+                    settingsDefs.value.forEach(def => {
+                        if (seen.has(def.key)) return;
+                        rows.push({ key: def.key, label: def.key, group: '其他', kind: def.kind || settingKind(def.key) });
+                        seen.add(def.key);
+                    });
+                    Object.keys(settings.value).forEach(key => {
+                        if (seen.has(key)) return;
+                        rows.push({ key, label: key, group: '其他', kind: settingKind(key) });
+                        seen.add(key);
+                    });
+                    return rows;
+                });
+
+                const settingsGroups = computed(() => {
+                    const groups = [];
+                    let current = null;
+                    settingsRows.value.forEach(row => {
+                        if (!current || current.group !== row.group) {
+                            current = { group: row.group, rows: [] };
+                            groups.push(current);
+                        }
+                        current.rows.push(row);
+                    });
+                    return groups;
+                });
+
+                const resetSettingsEdit = () => {
+                    const edit = {};
+                    Object.keys(settings.value).forEach(key => {
+                        const v = settings.value[key];
+                        if (v && typeof v === 'object') {
+                            try { edit[key] = JSON.parse(JSON.stringify(v)); } catch (e) { edit[key] = v; }
+                        } else {
+                            edit[key] = v;
+                        }
+                    });
+                    settingsEdit.value = edit;
+
+                    const defs = Array.isArray(settings.value['items.defs']) ? settings.value['items.defs'] : [];
+                    settingsDefsEdit.value = defs.map(d => ({
+                        emoji: d && d.emoji != null ? String(d.emoji) : '',
+                        label: d && d.label != null ? String(d.label) : '',
+                        key: d && d.key != null ? String(d.key) : ''
+                    }));
+
+                    const jsonText = {};
+                    settingsRows.value.forEach(row => {
+                        if (row.kind === 'json' && row.key !== 'items.defs') {
+                            try { jsonText[row.key] = JSON.stringify(settingsEdit.value[row.key] ?? null, null, 2); }
+                            catch (e) { jsonText[row.key] = ''; }
+                        }
+                    });
+                    settingsJsonText.value = jsonText;
+                };
+
+                const loadSettings = async (force = false) => {
+                    if (settingsLoaded.value && !force) return;
+                    settingsLoading.value = true;
+                    try {
+                        const data = await adminRequest('settings.get');
+                        settings.value = (data.settings && typeof data.settings === 'object') ? data.settings : {};
+                        settingsDefs.value = Array.isArray(data.defs) ? data.defs : [];
+                        resetSettingsEdit();
+                        settingsLoaded.value = true;
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    } finally {
+                        settingsLoading.value = false;
+                    }
+                };
+
+                const reloadSettings = () => loadSettings(true);
+
+                const addItemDef = () => {
+                    settingsDefsEdit.value.push({ emoji: '', label: '', key: '' });
+                };
+
+                const removeItemDef = (idx) => {
+                    settingsDefsEdit.value.splice(idx, 1);
+                };
+
+                const genItemKey = (label, idx) => {
+                    const base = String(label || '').trim().toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                    return base || `item_${idx + 1}`;
+                };
+
+                const saveSettings = async () => {
+                    if (settingsBusy.value) return;
+                    const payload = {};
+                    let badJson = null;
+                    settingsRows.value.forEach(row => {
+                        if (row.key === 'items.defs') return;
+                        if (row.kind === 'json') {
+                            try { payload[row.key] = JSON.parse(settingsJsonText.value[row.key] || 'null'); }
+                            catch (e) { badJson = row.key; }
+                        } else {
+                            payload[row.key] = settingsEdit.value[row.key];
+                        }
+                    });
+                    if (badJson) {
+                        showToast(`「${badJson}」不是合法 JSON`, 'error');
+                        return;
+                    }
+
+                    const defs = settingsDefsEdit.value.map((d, idx) => {
+                        const key = String(d.key || '').trim() || genItemKey(d.label, idx);
+                        return { emoji: d.emoji, label: d.label, key };
+                    });
+                    settingsDefsEdit.value = defs.map(d => ({ ...d }));
+                    payload['items.defs'] = defs;
+
+                    settingsBusy.value = true;
+                    try {
+                        await adminRequest('settings.set', { method: 'POST', body: { settings: payload } });
+                        showToast('已保存', 'success');
+                        await loadSettings(true);
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    } finally {
+                        settingsBusy.value = false;
+                    }
+                };
 
                 const formatTime = (value) => {
                     if (value === null || value === undefined || value === '') return '-';
@@ -610,6 +840,7 @@
                     roomsLoaded.value = false;
                     modulesLoaded.value = false;
                     auditLoaded.value = false;
+                    settingsLoaded.value = false;
                     showToast('已退出登录', 'info');
                 };
 
@@ -686,6 +917,7 @@
                     if (key === 'rooms') return loadRooms(force);
                     if (key === 'modules') return loadModules(force);
                     if (key === 'audit') return loadAudit(force);
+                    if (key === 'settings') return loadSettings(force);
                 };
 
                 const switchTab = (key) => {
@@ -877,6 +1109,8 @@
                     rooms, roomsLoading,
                     modules, modulesTotal, modulesQuery, modulesLimit, modulesOffset, modulesLoading,
                     audit, auditTotal, auditLimit, auditOffset, auditLoading,
+                    settings, settingsDefs, settingsBusy, settingsLoading, settingsEdit,
+                    settingsDefsEdit, settingsJsonText, settingsGroups,
                     selectedUsers, usersBusy, allUsersSelected,
                     selectedRooms, roomsBusy, allRoomsSelected,
                     maskedToken, statusText,
@@ -886,6 +1120,7 @@
                     changeUsersPage, changeModulesPage, changeAuditPage,
                     toggleUser, toggleAllUsers, batchDeleteUsers,
                     toggleRoom, toggleAllRooms, batchCloseRooms,
+                    loadSettings, reloadSettings, saveSettings, addItemDef, removeItemDef,
                     toggleBan, forceLogout, toggleRole, closeRoom, deleteModule
                 };
             }

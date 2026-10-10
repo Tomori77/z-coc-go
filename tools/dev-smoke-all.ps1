@@ -32,6 +32,10 @@ $url = "http://127.0.0.1:$Port"
 $env:HTTP_PROXY = $null; $env:HTTPS_PROXY = $null; $env:ALL_PROXY = $null
 [System.Net.WebRequest]::DefaultWebProxy = $null
 
+# Test-only: disable the fixed-window limiter so repeated smoke runs don't trip
+# the shared IP:scope buckets (register/login share the "auth" bucket).
+$env:RATE_LIMIT_DISABLED = '1'
+
 # Reap any instance left from a previous run so the port is free.
 if (Test-Path $pidFile) {
     $old = Get-Content $pidFile -ErrorAction SilentlyContinue
