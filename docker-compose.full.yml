@@ -1,0 +1,39 @@
+# 方案二：z-coc-go 应用 + PostgreSQL 一起统一管理（自带 db 服务与命名卷）。
+# 用法：docker compose -f docker-compose.full.yml up -d --build
+# .env 里仍需填写 PGSQL_USERNAME / PGSQL_PASSWORD / PGSQL_DATABASE；
+# 本文件内 app 的 PGSQL_HOST 已固定为 db，无需在 .env 指定。
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: z-coc-go-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGSQL_USERNAME:?请在 .env 填写数据库用户}
+      POSTGRES_PASSWORD: ${PGSQL_PASSWORD:?请在 .env 填写数据库密码}
+      POSTGRES_DB: ${PGSQL_DATABASE:?请在 .env 填写数据库名}
+    volumes:
+      - zcoc-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGSQL_USERNAME} -d ${PGSQL_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  app:
+    build: .
+    image: z-coc-go:latest
+    container_name: z-coc-go-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      PGSQL_HOST: db
+      PGSQL_PORT: 5432
+      PGSQL_USERNAME: ${PGSQL_USERNAME:?请在 .env 填写数据库用户}
+      PGSQL_PASSWORD: ${PGSQL_PASSWORD:?请在 .env 填写数据库密码}
+      PGSQL_DATABASE: ${PGSQL_DATABASE:?请在 .env 填写数据库名}
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
+volumes:
+  zcoc-pgdata:

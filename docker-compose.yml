@@ -1,0 +1,27 @@
+# 方案一（默认，推荐）：z-coc-go 应用单独一个容器，连接「已有」的 PostgreSQL 容器。
+# 前置条件：已有数据库容器必须接入同一个“外部” Docker 网络（默认 zcoc-net）。
+#   1) docker network create zcoc-net
+#   2) docker network connect zcoc-net <你的db容器名>
+#   3) cp .env.example .env 并填写 PGSQL_HOST（填“已有数据库的容器名”）等
+#   4) docker compose up -d --build
+services:
+  app:
+    build: .
+    image: z-coc-go:latest
+    container_name: z-coc-go-app
+    restart: unless-stopped
+    networks:
+      - zcoc-net
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      PGSQL_HOST: ${PGSQL_HOST:?请在 .env 指定已有 PostgreSQL 容器名}
+      PGSQL_PORT: ${PGSQL_PORT:-5432}
+      PGSQL_USERNAME: ${PGSQL_USERNAME:?请在 .env 填写数据库用户}
+      PGSQL_PASSWORD: ${PGSQL_PASSWORD:?请在 .env 填写数据库密码}
+      PGSQL_DATABASE: ${PGSQL_DATABASE:?请在 .env 填写数据库名}
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
+networks:
+  zcoc-net:
+    external: true
+    name: ${DOCKER_NETWORK:-zcoc-net}

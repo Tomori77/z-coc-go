@@ -47,6 +47,17 @@ docker run --rm -p 8080:8080 \
   z-coc-go
 ```
 
+推荐用 Compose 部署（详细步骤见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)）：
+
+- [`docker-compose.yml`](docker-compose.yml) — **方案一（默认）**：应用单独一个容器，连「已有」的 PostgreSQL 容器。
+- [`docker-compose.full.yml`](docker-compose.full.yml) — **方案二**：应用 + PostgreSQL 一起管理（命名卷持久化）。
+
+```bash
+cp .env.example .env   # 填好后：
+docker compose up -d --build                          # 方案一
+# docker compose -f docker-compose.full.yml up -d --build   # 方案二
+```
+
 ## 验收
 
 ```powershell
@@ -56,10 +67,13 @@ powershell -ExecutionPolicy Bypass -File tools/api-smoke.ps1 -BaseUrl http://127
 
 ## 状态
 
-- **Phase 1 完成**：Go 实现与 PHP 相同的 API 契约（`db_api` / `room_api` / `library_api` / `health` / `dl/download`），smoke **27/27**。
-- 待办：Phase 2（Go 托管静态 + 换镜像）、Phase 3（WebSocket 实时化）及后续需求路线图，见 `docs/GO_BACKEND_TASKS.md`。
+- **Phase 0 / 1 / 2 / 3 完成**：Go 实现与 PHP 相同的 API 契约（smoke **27/27**），Go 托管静态前端（`go:embed` + 缓存/安全头/CSP/SPA 回退），WebSocket 实时房间（前端保留 HTTP 回退）。
+- 待办：Phase 4（好友功能、多人游戏大厅、管理员后台、战斗界面、地图），见 [`docs/GO_BACKEND_TASKS.md`](docs/GO_BACKEND_TASKS.md)。
 
 ## 文档
 
-- `docs/GO_BACKEND_PLAN.md` — 技术选型、迁移计划、后续需求路线图
-- `docs/GO_BACKEND_TASKS.md` — 可勾选的实现任务清单
+- [`AGENTS.md`](AGENTS.md) — 给接手的 AI / 开发者的「续作总结」（技术栈、目录、契约、进度、约定）
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — 部署指南（方案一 / 方案二、环境变量、反代、备份）
+- [`docs/GO_BACKEND_PLAN.md`](docs/GO_BACKEND_PLAN.md) — 技术选型、迁移计划、后续需求路线图
+- [`docs/GO_BACKEND_TASKS.md`](docs/GO_BACKEND_TASKS.md) — 可勾选的实现任务清单
+- [`docs/WS_PROTOCOL.md`](docs/WS_PROTOCOL.md) — WebSocket 房间协议
