@@ -2924,8 +2924,8 @@
                             <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">房间通讯码</label>
                             <input v-model="joinRoomId" placeholder="输入 Room ID..." class="w-full bg-dark-950 border border-dark-700 rounded-lg px-4 py-3 text-slate-200 focus:border-mystic-green focus:ring-1 focus:ring-mystic-green/50 outline-none transition-all font-mono text-center tracking-widest text-lg">
                             <label class="flex items-center gap-2 mt-3 cursor-pointer select-none" @click.prevent="joinAsSpectator = !joinAsSpectator">
-                                <span class="w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold shrink-0" :class="joinAsSpectator ? 'bg-mystic-green/80 border-mystic-green text-dark-950' : 'bg-dark-950 border-dark-600 text-transparent'">✓</span>
-                                <span class="text-xs text-slate-400">以旁观者身份加入（已开局的房间进入后自动旁观）</span>
+                                <span class="w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold shrink-0" :class="joinAsSpectator ? 'bg-mystic-green/80 border-mystic-green text-dark-950' : 'bg-dark-950 border-slate-400 text-transparent'">✓</span>
+                                <span class="text-xs font-bold text-slate-200">以旁观者身份加入（已开局的房间进入后自动旁观）</span>
                             </label>
                         </div>
 
@@ -2938,10 +2938,6 @@
                         </div>
                         
                         <button @click="createRoom()" class="w-full py-3 bg-gradient-to-r from-mystic-green to-teal-900 text-teal-100 font-bold rounded-lg shadow-lg hover:shadow-mystic-green/20 transition-all border border-mystic-green/50 uppercase tracking-widest">建立新信标 (创建房间)</button>
-                        <label class="flex items-center justify-center gap-2 mt-3 cursor-pointer select-none" @click.prevent="createRoomPublic = !createRoomPublic">
-                            <span class="w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold shrink-0" :class="createRoomPublic ? 'bg-mystic-green/80 border-mystic-green text-dark-950' : 'bg-dark-950 border-dark-600 text-transparent'">✓</span>
-                            <span class="text-xs text-slate-400">公开到大厅</span>
-                        </label>
                      </div>
 
                      <div class="mt-8 text-center">
@@ -9694,6 +9690,8 @@ ${buildInvestigatorProfile(inv)}
                 // 快照条数与总字节上限：40/120KB 太小，实际跑局中几条长消息就会裁到只剩 2 条，导致重连只剩最新
                 const ROOM_SYNC_LOG_LIMIT = 200;
                 const ROOM_SYNC_TEXT_LIMIT = 400000;
+                // 全量同步的安全上限：低于服务端 MaxPayloadBytes(512KB)，超出则降级为轻量状态
+                const ROOM_STATE_MAX_BYTES = 470000;
 
                 const trimRoomText = (value, maxChars) => {
                     if (typeof value !== 'string' || value.length <= maxChars) return value;
@@ -9753,7 +9751,15 @@ ${buildInvestigatorProfile(inv)}
 
                 const broadcastFullState = () => {
                     if (!multiplayerState.isHost) return;
-                    broadcastMessage(createRoomStatePayload({ includeLog: true }));
+                    const payload = createRoomStatePayload({ includeLog: true });
+                    try {
+                        if (new Blob([JSON.stringify(payload)]).size > ROOM_STATE_MAX_BYTES) {
+                            // 全量过大：降级为轻量状态（不含 log），确保成员/角色仍能同步
+                            broadcastMessage(createRoomStatePayload());
+                            return;
+                        }
+                    } catch (e) { /* 体积估算失败则照常全量发送 */ }
+                    broadcastMessage(payload);
                 };
 
                 const handleBroadcastMessage = (payload) => {
@@ -9777,6 +9783,7 @@ ${buildInvestigatorProfile(inv)}
                                     multiplayerState.members.push({ ...newMember, isHost: false, isReady: false, isSpectator: asSpectator, isOffline: false });
                                     showToast(`${newMember.name} ${asSpectator ? '以旁观者身份加入' : '加入了房间'}`, asSpectator ? 'info' : 'success');
                                 }
+                                broadcastState();
                                 broadcastFullState();
                             }
                             break;
