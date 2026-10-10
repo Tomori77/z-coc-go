@@ -2122,13 +2122,13 @@
             </div>
 
             <div class="p-4 border-t border-dark-800 bg-dark-950/50 cursor-pointer hover:bg-dark-800 transition-colors group safe-pb" @click="currentView = 'settings'; showMobileMenu = false">
-                <div class="flex items-center" v-if="cocState.gameState === 'playing' && cocState.activeInvestigatorIndex !== -1 && cocState.investigators[cocState.activeInvestigatorIndex]">
+                <div class="flex items-center" v-if="cocState.gameState === 'playing' && myRoleInv">
                     <div class="w-10 h-10 rounded-full overflow-hidden shadow-lg ring-2 ring-mystic-gold/50">
-                        <img v-if="cocState.investigators[cocState.activeInvestigatorIndex].avatar" :src="cocState.investigators[cocState.activeInvestigatorIndex].avatar" :alt="`${cocState.investigators[cocState.activeInvestigatorIndex].name || '调查员'}的头像`" class="w-full h-full object-cover">
-                        <div v-else class="w-full h-full bg-dark-800 flex items-center justify-center text-mystic-gold font-bold font-serif">{{ cocState.investigators[cocState.activeInvestigatorIndex].name.charAt(0) }}</div>
+                        <img v-if="myRoleInv.avatar" :src="myRoleInv.avatar" :alt="`${myRoleInv.name || '调查员'}的头像`" class="w-full h-full object-cover">
+                        <div v-else class="w-full h-full bg-dark-800 flex items-center justify-center text-mystic-gold font-bold font-serif">{{ (myRoleInv.name || '?').charAt(0) }}</div>
                     </div>
                     <div class="ml-3 overflow-hidden">
-                        <div class="text-sm font-bold text-mystic-gold truncate font-serif">{{ cocState.investigators[cocState.activeInvestigatorIndex].name }}</div>
+                        <div class="text-sm font-bold text-mystic-gold truncate font-serif">{{ myRoleInv.name }}</div>
                         <div class="text-xs text-slate-500 truncate font-mono">扮演中...</div>
                     </div>
                 </div>
@@ -2266,23 +2266,7 @@
                                     <div class="text-[10px] text-mystic-gold/60 uppercase tracking-[0.2em] font-bold">当前模组</div>
                                     <div class="font-bold text-mystic-gold truncate max-w-[200px] md:max-w-[400px] font-serif tracking-wide text-lg text-shadow-gold">{{ cocState.module?.name || '未命名模组' }}</div>
                                 </div>
-                                <!-- Player Preview (Top Bar) -->
-                                <div v-if="cocState.mode === 'multi' && multiplayerState.members.length > 0" class="hidden md:flex items-center -space-x-2 ml-6 border-l border-dark-700 pl-6 py-1">
-                                    <div v-for="member in multiplayerState.members" :key="member.id" class="relative">
-                                        <div class="w-8 h-8 rounded-full border-2 bg-dark-800 overflow-hidden relative group cursor-help transition-all z-0 hover:z-10 hover:scale-110" :class="member.isHost ? 'border-mystic-gold shadow-[0_0_8px_rgba(212,175,55,0.6)] z-10' : (member.isSpectator ? 'border-slate-600 border-dashed' : 'border-slate-400')" :title="member.name + (member.isHost ? ' (房主)' : '') + (member.isSpectator ? ' (旁观)' : '') + (member.isOffline ? ' (离线)' : '')" @click="multiplayerState.isHost && member.isOffline && !member.isHost ? (multiplayerState.memberMenuUserId = multiplayerState.memberMenuUserId === member.id ? null : member.id) : undefined">
-                                            <img v-if="member.avatar" :src="member.avatar" :alt="`${member.name || '参与者'}的头像`" class="w-full h-full object-cover" :class="member.isOffline ? 'grayscale opacity-50' : ''">
-                                            <div v-else class="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500" :class="member.isOffline ? 'grayscale opacity-50' : ''">{{ member.name.charAt(0) }}</div>
-                                            <span v-if="member.isSpectator" class="absolute top-0 right-0 text-[8px] leading-none">👁</span>
-                                            <div class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-dark-950" :class="member.isOffline ? 'bg-red-500' : (member.isReady || member.isHost ? 'bg-mystic-green' : 'bg-slate-500')"></div>
-                                        </div>
-                                        <!-- 房主对离线成员的操作菜单（对局中） -->
-                                        <div v-if="multiplayerState.memberMenuUserId === member.id && multiplayerState.isHost && member.isOffline && !member.isHost" class="absolute top-full right-0 mt-1 z-[4000] bg-dark-900 border border-dark-600 rounded-lg p-1 flex flex-col gap-1 shadow-2xl w-36">
-                                            <button @click="moveToSpectator(member.id); multiplayerState.memberMenuUserId = null" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-dark-700 rounded transition-colors">移入旁观<br><span class="text-[9px] text-slate-500">释放角色，重连后旁观</span></button>
-                                            <button @click="kickPlayer(member.id); multiplayerState.memberMenuUserId = null" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-950/40 rounded transition-colors">踢出房间<br><span class="text-[9px] text-slate-500">释放角色，禁止进入</span></button>
-                                        </div>
-                                    </div>
-                                    <div v-if="multiplayerState.members.length > 5" class="w-8 h-8 rounded-full border-2 border-slate-400 bg-dark-800 flex items-center justify-center text-[10px] text-slate-400 font-bold">+{{ multiplayerState.members.length - 5 }}</div>
-                                </div>
+                                <!-- Player Preview (Top Bar) removed: member roster lives in the right rail -->
                             </div>
                             <div class="flex items-center gap-2 relative z-10">
                                 <!-- Room ID Display (Multiplayer Only) -->
@@ -2304,6 +2288,7 @@
                         </div>
     
                         <div class="flex-1 flex overflow-hidden relative">
+                            <div class="flex-1 flex flex-col min-w-0 relative">
                             <!-- Chat Log -->
               <div class="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 custom-scrollbar" ref="cocChatContainer" @scroll="handleChatScroll">
                                 <div v-for="(msg, index) in cocState.log" :key="index" class="flex w-full animate-message-in group" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
@@ -2495,12 +2480,100 @@
                                 </div>
                             </div>
     
-                            <!-- Mobile Right Sidebar Overlay -->
                             <!-- 回到最新按钮（滚动离开底部时出现） -->
                             <button v-if="!chatAutoScroll" @click="scrollToBottom(true)" aria-label="回到最新" title="回到最新" class="absolute right-6 bottom-6 md:right-8 md:bottom-8 z-30 p-3 rounded-full bg-dark-900/90 hover:bg-dark-800 border border-mystic-gold/50 text-mystic-gold shadow-xl transition-all hover:border-mystic-gold">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
                             </button>
 
+                            <!-- 弹幕输入（全员可见） -->
+                            <div v-if="danmakuEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="px-2 pt-2 z-20 relative">
+                                <div class="w-full flex items-center gap-2 bg-dark-900 border border-dark-800 rounded-lg px-3 py-1.5">
+                                    <span class="text-xs shrink-0">🎐</span>
+                                    <input v-model="danmakuInput" @keydown.enter.prevent="sendDanmaku" maxlength="60" placeholder="发送弹幕（全员可见）..." class="flex-1 bg-transparent text-xs text-slate-200 placeholder-slate-600 outline-none">
+                                    <button @click="sendDanmaku" class="px-3 py-1 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded text-xs font-bold transition-all">发送</button>
+                                </div>
+                            </div>
+
+                            <!-- 底部输入区：主输入 2/3 + 群聊 1/3 -->
+                            <div class="p-2 bg-dark-900 border-t border-dark-800 z-20 relative safe-pb flex gap-2 items-stretch">
+                                <div class="flex-1 min-w-0">
+                                    <!-- Mention Auto-complete List -->
+                                    <div v-if="showMentionList && mentionCandidates.length > 0" class="absolute bottom-full left-4 mb-2 w-64 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden z-50 animate-fade-in">
+                                        <div class="text-[10px] bg-dark-900 px-3 py-1 text-slate-500 uppercase tracking-widest font-bold border-b border-dark-700">提及 (Mention)</div>
+                                        <div class="max-h-48 overflow-y-auto custom-scrollbar">
+                                            <div v-for="(candidate, idx) in mentionCandidates" :key="idx" @click="selectMention(candidate)" class="px-3 py-2 flex items-center gap-3 hover:bg-mystic-gold/10 cursor-pointer transition-colors group border-b border-dark-700/50 last:border-0">
+                                                <div class="w-6 h-6 rounded bg-dark-700 overflow-hidden flex-shrink-0 border border-dark-600 group-hover:border-mystic-gold/50">
+                                                    <img v-if="candidate.avatar" :src="candidate.avatar" :alt="`${candidate.name || '候选角色'}的头像`" class="w-full h-full object-cover"><div v-else class="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{{ candidate.name.charAt(0) }}</div>
+                                                </div>
+                                                <div class="flex flex-col min-w-0"><span class="text-sm font-bold text-slate-300 group-hover:text-mystic-gold truncate">{{ candidate.name }}</span><span class="text-[10px] text-slate-500 truncate">{{ candidate.type === 'character' ? '角色' : '玩家' }}</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 指令记忆快捷键：短按追加到输入栏，长按（或点按空按钮）设置指令 -->
+                                    <div class="w-full flex gap-2 mb-2">
+                                        <button v-for="(cmd, slot) in settings.commandHotkeys" :key="slot"
+                                                @pointerdown.prevent="hotkeyPressStart(slot)" @pointerup.prevent="hotkeyPressEnd(slot)" @pointercancel="hotkeyPressEnd(slot, true)" @contextmenu.prevent
+                                                :class="cmd ? 'bg-dark-800 border-dark-600 hover:border-mystic-gold/50 text-slate-300 hover:text-mystic-gold' : 'bg-dark-950/50 border-dashed border-dark-600 text-slate-600 hover:border-mystic-gold/40'"
+                                                class="flex-1 max-w-[180px] px-3 py-1.5 rounded-lg border text-xs font-mono truncate transition-all select-none" :title="cmd ? `短按追加：${cmd}（长按更换）` : '点按设置指令'">
+                                            {{ cmd || `＋ 指令 ${slot + 1}` }}
+                                        </button>
+                                    </div>
+                                    <!-- 指令选择器 -->
+                                    <div v-if="commandPickerState.show" class="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" @click.self="commandPickerState.show = false">
+                                        <div class="bg-dark-900 border border-mystic-gold/40 rounded-xl p-5 max-w-sm w-full space-y-3 shadow-2xl">
+                                            <div class="text-sm font-bold text-mystic-gold font-serif">设置指令快捷键 {{ commandPickerState.slot + 1 }}</div>
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <button v-for="c in commonCommands" :key="c" @click="assignHotkey(c)" class="px-3 py-2 bg-dark-800 border border-dark-600 hover:border-mystic-gold/60 rounded text-xs font-mono text-slate-300 hover:text-mystic-gold transition-all truncate">{{ c }}</button>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <input v-model="commandPickerState.custom" @keydown.enter.prevent="assignHotkey(commandPickerState.custom.trim())" placeholder="自定义指令，如 .rab 图书馆" class="flex-1 bg-dark-950 border border-dark-700 rounded px-3 py-2 text-xs font-mono text-slate-200 focus:border-mystic-gold outline-none">
+                                                <button @click="assignHotkey(commandPickerState.custom.trim())" :disabled="!commandPickerState.custom.trim()" class="px-4 py-2 bg-mystic-gold/20 border border-mystic-gold/50 text-mystic-gold rounded text-xs font-bold disabled:opacity-40 transition-all">确定</button>
+                                            </div>
+                                            <button @click="assignHotkey('')" class="w-full py-2 text-xs text-slate-500 hover:text-red-400 transition-colors">清除该快捷键</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="w-full flex gap-3">
+                                        <textarea v-model="cocInput" ref="cocInputRef" @input="handleInput" @keydown.enter.prevent="sendCocMessage" @keydown.esc="showMentionList = false" :placeholder="multiplayerState.isSpectator ? '旁观模式中，无法发言' : (isRoundLocked ? '本轮已行动，仍可投骰检定...' : '你的行动...')" :disabled="cocState.mode === 'multi' && multiplayerState.isSpectator" class="flex-1 bg-dark-800 rounded-lg px-4 py-3 resize-none border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold focus:bg-dark-900 text-slate-200 placeholder-slate-600 transition-all h-[56px] custom-scrollbar disabled:opacity-50 disabled:cursor-not-allowed"></textarea>
+                                        <button @click="sendCocMessage" aria-label="发送消息" :disabled="!cocInput.trim()" class="w-[56px] h-[56px] bg-dark-800 hover:bg-mystic-gold hover:text-dark-950 text-mystic-gold border border-mystic-gold/50 rounded-lg flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg group"><svg class="w-6 h-6 transform rotate-90 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg></button>
+                                    </div>
+                                </div>
+                                <div v-if="cocState.mode === 'multi' && multiplayerState.inRoom && chatEnabled" class="w-1/3 shrink-0 min-w-0">
+                                    <!-- 群聊 Dock（玩家/旁观者各自隔离，独立于 AI 对话日志） -->
+                                    <div v-if="cocState.mode === 'multi' && multiplayerState.inRoom && chatEnabled" class="h-full">
+                                        <div class="w-full h-full bg-dark-900 border border-dark-800 rounded-lg overflow-hidden">
+                                            <button @click="showGroupChat = !showGroupChat" class="w-full flex items-center justify-between px-3 py-2 text-xs text-slate-400 hover:text-mystic-gold transition-colors">
+                                                <span class="flex items-center gap-2"><span>💬 群聊</span><span class="text-slate-600 font-mono">({{ multiplayerState.isSpectator ? spectatorChat.length : groupChat.length }})</span></span>
+                                                <svg :class="showGroupChat ? 'rotate-180' : ''" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                                            </button>
+                                            <div v-if="showGroupChat" class="border-t border-dark-800">
+                                                <div ref="groupChatScrollEl" class="max-h-40 overflow-y-auto custom-scrollbar px-3 py-2 space-y-1 text-xs">
+                                                    <template v-if="multiplayerState.isSpectator">
+                                                        <div v-if="spectatorChat.length === 0" class="text-slate-600 italic">暂无消息</div>
+                                                        <div v-for="m in spectatorChat" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
+                                                    </template>
+                                                    <template v-else>
+                                                        <div v-if="groupChat.length === 0" class="text-slate-600 italic">暂无消息</div>
+                                                        <div v-for="m in groupChat" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
+                                                    </template>
+                                                </div>
+                                                <div v-if="multiplayerState.isSpectator" class="flex gap-2 p-2 border-t border-dark-800">
+                                                    <input v-model="spectatorChatInput" @keydown.enter.prevent="sendSpectatorChat" placeholder="旁观者群聊..." class="flex-1 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
+                                                    <button @click="sendSpectatorChat" class="px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
+                                                </div>
+                                                <div v-else class="flex gap-2 p-2 border-t border-dark-800">
+                                                    <input v-model="groupChatInput" @keydown.enter.prevent="sendGroupChat" placeholder="玩家群聊..." class="flex-1 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
+                                                    <button @click="sendGroupChat" class="px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            </div>
+                            <!-- Mobile Right Sidebar Overlay -->
                             <div v-if="showMobileRightSidebar" @click="showMobileRightSidebar = false" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-20 md:hidden transition-opacity"></div>
 
                             <!-- Sidebar Info (Desktop & Mobile) -->
@@ -2514,9 +2587,8 @@
                                         </div>
                                         <div v-if="showAllMembers" class="mt-2 p-2 rounded border border-dark-700 bg-dark-950/95 shadow-xl"><div class="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto custom-scrollbar"><button v-for="member in multiplayerState.members" :key="`all-${member.id}`" @click="onMemberTileClick(member); showAllMembers = false" class="z-member-tile flex flex-col items-center gap-1 p-1 rounded border border-dark-700 bg-dark-800/50 hover:border-slate-500"><div class="w-7 h-7 rounded bg-dark-900 overflow-hidden border border-dark-600"><img v-if="member.avatar" :src="member.avatar" :alt="`${member.name || '成员'}的头像`" class="w-full h-full object-cover"><span v-else class="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{{ (member.name || '?').charAt(0) }}</span></div><span class="w-full truncate text-[9px] text-center text-slate-500">{{ member.name }}</span></button></div></div>
                                     </section>
-                                    <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">角色信息</h3><button @click="openCharacterDrawer" :disabled="!hasActiveInvestigator" class="w-full px-3 py-2 rounded border border-mystic-gold/30 bg-mystic-gold/5 text-mystic-gold text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed">查看详细信息</button></section>
-                                    <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">故事阶段</h3><div class="px-3 py-2 rounded border border-dark-700 bg-dark-800/50 text-xs text-slate-400 truncate">{{ cocState.storyStage || '尚未记录' }}</div></section>
-                                    <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">回合</h3><div class="px-3 py-2 rounded border border-dark-700 bg-dark-800/50 text-xs text-slate-400">{{ multiplayerState.roundNumber > 0 ? `第 ${multiplayerState.roundNumber} 轮` : '未开始' }}<span v-if="cocState.mode === 'multi' && multiplayerState.members[multiplayerState.turnIndex]?.name" class="text-slate-600"> / {{ multiplayerState.members[multiplayerState.turnIndex].name }}</span></div></section>
+                                     <section v-if="itemsEnabled" class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">道具</h3><div class="flex flex-wrap items-center gap-2"><button v-for="it in itemDefs" :key="it.key" @click="selectItem(it)" :title="it.label" :class="['px-2 py-1 rounded text-base leading-none border transition-all', selectedItem && selectedItem.key === it.key ? 'bg-mystic-gold/30 border-mystic-gold' : 'bg-dark-800 border-dark-600 hover:border-mystic-gold/50']">{{ it.emoji }}</button></div><div v-if="selectedItem" class="mt-2 text-[10px] text-mystic-gold truncate">已选 {{ selectedItem.emoji }} · 点击成员使用</div></section>
+                                     <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">故事阶段 · 回合</h3><div class="px-3 py-2 rounded border border-dark-700 bg-dark-800/50 text-xs text-slate-400 truncate">{{ cocState.storyStage || '尚未记录' }} · {{ multiplayerState.roundNumber > 0 ? `第 ${multiplayerState.roundNumber} 轮` : '未开始' }}</div></section>
                                     <section v-if="multiplayerState.isHost" class="border-t border-dark-800 pt-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">房主功能</h3><span class="text-[9px] font-mono text-slate-600">HOST</span></div><div class="text-[10px] text-slate-500 mb-2 truncate">选中：{{ selectedRoomMember?.name || '请先选择成员' }}</div><select v-model="selectedBindingInvestigatorIndex" :disabled="!selectedRoomMemberId" class="w-full mb-2 px-2 py-2 rounded border border-dark-700 bg-dark-800 text-[10px] text-slate-400 disabled:opacity-35"><option :value="null">选择要绑定的角色卡</option><option v-for="(inv, index) in cocState.investigators" :key="`bind-${index}`" :value="index">{{ inv.name }}{{ multiplayerState.assignments[index] ? `（已绑定）` : '' }}</option></select><div class="grid grid-cols-2 gap-2"><button @click="bindPlayerToCharacter(selectedRoomMemberId, selectedBindingInvestigatorIndex)" :disabled="!selectedRoomMemberId || selectedBindingInvestigatorIndex === null" class="col-span-2 px-2 py-2 rounded border border-mystic-green/40 text-[10px] text-mystic-green disabled:opacity-35 disabled:cursor-not-allowed">绑定玩家</button><button @click="moveToSpectator(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">移入旁观</button><button @click="restorePlayer(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">恢复玩家</button><button @click="releaseCharacter(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">释放角色</button><button @click="kickPlayer(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-red-900/40 text-[10px] text-red-400 disabled:opacity-35 disabled:cursor-not-allowed">踢出房间</button><button @click="viewMemberCard(selectedRoomMember)" :disabled="!selectedRoomMemberId" class="col-span-2 px-2 py-2 rounded border border-mystic-gold/30 text-[10px] text-mystic-gold disabled:opacity-35 disabled:cursor-not-allowed">查看角色卡</button></div><button @click="forceEndRound()" class="w-full mt-2 px-2 py-2 rounded border border-mystic-gold/50 bg-mystic-gold/10 text-[10px] font-bold text-mystic-gold hover:bg-mystic-gold/20 transition-colors">结束本轮</button></section>
                                 </div>
                             </aside>
@@ -2797,96 +2869,11 @@
                             </aside>
                         </div>
 
-                        <!-- 道具栏（房间内全员可用） -->
-                        <div v-if="itemsEnabled && cocState.mode === 'multi' && multiplayerState.inRoom && itemDefs.length" class="px-2 pt-2 z-20 relative">
-                            <div class="max-w-4xl mx-auto w-full flex items-center gap-2 bg-dark-900 border border-dark-800 rounded-lg px-3 py-1.5">
-                                <span class="text-xs shrink-0 text-slate-500">道具</span>
-                                <button v-for="it in itemDefs" :key="it.key" @click="selectItem(it)" :title="it.label"
-                                        :class="['px-2 py-1 rounded text-base leading-none border transition-all', selectedItem && selectedItem.key === it.key ? 'bg-mystic-gold/30 border-mystic-gold' : 'bg-dark-800 border-dark-600 hover:border-mystic-gold/50']">{{ it.emoji }}</button>
-                                <span v-if="selectedItem" class="text-[10px] text-mystic-gold truncate">已选 {{ selectedItem.emoji }} · 点击成员使用</span>
-                            </div>
-                        </div>
-                        <!-- 弹幕输入（全员可见） -->
-                        <div v-if="danmakuEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="px-2 pt-2 z-20 relative">
-                            <div class="max-w-4xl mx-auto w-full flex items-center gap-2 bg-dark-900 border border-dark-800 rounded-lg px-3 py-1.5">
-                                <span class="text-xs shrink-0">🎐</span>
-                                <input v-model="danmakuInput" @keydown.enter.prevent="sendDanmaku" maxlength="60" placeholder="发送弹幕（全员可见）..." class="flex-1 bg-transparent text-xs text-slate-200 placeholder-slate-600 outline-none">
-                                <button @click="sendDanmaku" class="px-3 py-1 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded text-xs font-bold transition-all">发送</button>
-                            </div>
-                        </div>
-                        <!-- 群聊 Dock（玩家/旁观者各自隔离，独立于 AI 对话日志） -->
-                        <div v-if="cocState.mode === 'multi' && multiplayerState.inRoom && chatEnabled" class="px-2 pt-2 z-20 relative">
-                            <div class="max-w-4xl mx-auto w-full bg-dark-900 border border-dark-800 rounded-lg overflow-hidden">
-                                <button @click="showGroupChat = !showGroupChat" class="w-full flex items-center justify-between px-3 py-2 text-xs text-slate-400 hover:text-mystic-gold transition-colors">
-                                    <span class="flex items-center gap-2"><span>💬 群聊</span><span class="text-slate-600 font-mono">({{ multiplayerState.isSpectator ? spectatorChat.length : groupChat.length }})</span></span>
-                                    <svg :class="showGroupChat ? 'rotate-180' : ''" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-                                </button>
-                                <div v-if="showGroupChat" class="border-t border-dark-800">
-                                    <div ref="groupChatScrollEl" class="max-h-40 overflow-y-auto custom-scrollbar px-3 py-2 space-y-1 text-xs">
-                                        <template v-if="multiplayerState.isSpectator">
-                                            <div v-if="spectatorChat.length === 0" class="text-slate-600 italic">暂无消息</div>
-                                            <div v-for="m in spectatorChat" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
-                                        </template>
-                                        <template v-else>
-                                            <div v-if="groupChat.length === 0" class="text-slate-600 italic">暂无消息</div>
-                                            <div v-for="m in groupChat" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
-                                        </template>
-                                    </div>
-                                    <div v-if="multiplayerState.isSpectator" class="flex gap-2 p-2 border-t border-dark-800">
-                                        <input v-model="spectatorChatInput" @keydown.enter.prevent="sendSpectatorChat" placeholder="旁观者群聊..." class="flex-1 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
-                                        <button @click="sendSpectatorChat" class="px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
-                                    </div>
-                                    <div v-else class="flex gap-2 p-2 border-t border-dark-800">
-                                        <input v-model="groupChatInput" @keydown.enter.prevent="sendGroupChat" placeholder="玩家群聊..." class="flex-1 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
-                                        <button @click="sendGroupChat" class="px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Input -->
-                        <div class="p-2 bg-dark-900 border-t border-dark-800 z-20 relative safe-pb">
-                            <!-- Mention Auto-complete List -->
-                            <div v-if="showMentionList && mentionCandidates.length > 0" class="absolute bottom-full left-4 mb-2 w-64 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden z-50 animate-fade-in">
-                                <div class="text-[10px] bg-dark-900 px-3 py-1 text-slate-500 uppercase tracking-widest font-bold border-b border-dark-700">提及 (Mention)</div>
-                                <div class="max-h-48 overflow-y-auto custom-scrollbar">
-                                    <div v-for="(candidate, idx) in mentionCandidates" :key="idx" @click="selectMention(candidate)" class="px-3 py-2 flex items-center gap-3 hover:bg-mystic-gold/10 cursor-pointer transition-colors group border-b border-dark-700/50 last:border-0">
-                                        <div class="w-6 h-6 rounded bg-dark-700 overflow-hidden flex-shrink-0 border border-dark-600 group-hover:border-mystic-gold/50">
-                                            <img v-if="candidate.avatar" :src="candidate.avatar" :alt="`${candidate.name || '候选角色'}的头像`" class="w-full h-full object-cover"><div v-else class="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{{ candidate.name.charAt(0) }}</div>
-                                        </div>
-                                        <div class="flex flex-col min-w-0"><span class="text-sm font-bold text-slate-300 group-hover:text-mystic-gold truncate">{{ candidate.name }}</span><span class="text-[10px] text-slate-500 truncate">{{ candidate.type === 'character' ? '角色' : '玩家' }}</span></div>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- 道具栏已移至右侧功能区（E2/E8） -->
+                        <!-- 弹幕输入已移入左侧日志列（E7） -->
+                        <!-- 群聊 Dock 已移入底部输入行（E7/E9） -->
+                        <!-- 主输入区已移入左侧日志列（E7/E9） -->
 
-                            <!-- 指令记忆快捷键：短按追加到输入栏，长按（或点按空按钮）设置指令 -->
-                            <div class="max-w-4xl mx-auto w-full flex gap-2 mb-2">
-                                <button v-for="(cmd, slot) in settings.commandHotkeys" :key="slot"
-                                        @pointerdown.prevent="hotkeyPressStart(slot)" @pointerup.prevent="hotkeyPressEnd(slot)" @pointercancel="hotkeyPressEnd(slot, true)" @contextmenu.prevent
-                                        :class="cmd ? 'bg-dark-800 border-dark-600 hover:border-mystic-gold/50 text-slate-300 hover:text-mystic-gold' : 'bg-dark-950/50 border-dashed border-dark-600 text-slate-600 hover:border-mystic-gold/40'"
-                                        class="flex-1 max-w-[180px] px-3 py-1.5 rounded-lg border text-xs font-mono truncate transition-all select-none" :title="cmd ? `短按追加：${cmd}（长按更换）` : '点按设置指令'">
-                                    {{ cmd || `＋ 指令 ${slot + 1}` }}
-                                </button>
-                            </div>
-                            <!-- 指令选择器 -->
-                            <div v-if="commandPickerState.show" class="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" @click.self="commandPickerState.show = false">
-                                <div class="bg-dark-900 border border-mystic-gold/40 rounded-xl p-5 max-w-sm w-full space-y-3 shadow-2xl">
-                                    <div class="text-sm font-bold text-mystic-gold font-serif">设置指令快捷键 {{ commandPickerState.slot + 1 }}</div>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <button v-for="c in commonCommands" :key="c" @click="assignHotkey(c)" class="px-3 py-2 bg-dark-800 border border-dark-600 hover:border-mystic-gold/60 rounded text-xs font-mono text-slate-300 hover:text-mystic-gold transition-all truncate">{{ c }}</button>
-                                    </div>
-                                    <div class="flex gap-2">
-                                        <input v-model="commandPickerState.custom" @keydown.enter.prevent="assignHotkey(commandPickerState.custom.trim())" placeholder="自定义指令，如 .rab 图书馆" class="flex-1 bg-dark-950 border border-dark-700 rounded px-3 py-2 text-xs font-mono text-slate-200 focus:border-mystic-gold outline-none">
-                                        <button @click="assignHotkey(commandPickerState.custom.trim())" :disabled="!commandPickerState.custom.trim()" class="px-4 py-2 bg-mystic-gold/20 border border-mystic-gold/50 text-mystic-gold rounded text-xs font-bold disabled:opacity-40 transition-all">确定</button>
-                                    </div>
-                                    <button @click="assignHotkey('')" class="w-full py-2 text-xs text-slate-500 hover:text-red-400 transition-colors">清除该快捷键</button>
-                                </div>
-                            </div>
-
-                            <div class="max-w-4xl mx-auto flex gap-3">
-                                <textarea v-model="cocInput" ref="cocInputRef" @input="handleInput" @keydown.enter.prevent="sendCocMessage" @keydown.esc="showMentionList = false" :placeholder="multiplayerState.isSpectator ? '旁观模式中，无法发言' : (isRoundLocked ? '本轮已行动，仍可投骰检定...' : '你的行动...')" :disabled="cocState.mode === 'multi' && multiplayerState.isSpectator" class="flex-1 bg-dark-800 rounded-lg px-4 py-3 resize-none border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold focus:bg-dark-900 text-slate-200 placeholder-slate-600 transition-all h-[56px] custom-scrollbar disabled:opacity-50 disabled:cursor-not-allowed"></textarea>
-                                <button @click="sendCocMessage" aria-label="发送消息" :disabled="!cocInput.trim()" class="w-[56px] h-[56px] bg-dark-800 hover:bg-mystic-gold hover:text-dark-950 text-mystic-gold border border-mystic-gold/50 rounded-lg flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg group"><svg class="w-6 h-6 transform rotate-90 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg></button>
-                            </div>
-                        </div>
                     </div>
             </div>
 
@@ -6081,6 +6068,14 @@
                 const multiplayerState = reactive({ isConnected: false, inRoom: false, roomId: null, hostToken: '', myId: null, isHost: false, hostAuthorizationFailed: false, useWebSocket: true, members: [], turnStatus: {}, skipStatus: {}, isReady: false, assignments: {}, assignmentDetails: {}, turnIndex: 0, roundNumber: 0, roundActionIds: [], cotAuthorizedUsers: [], syncReceived: false, isSpectator: false, kickedMembers: [], memberMenuUserId: null, roomName: '' });
                 const hasActiveInvestigator = Vue.computed(() => cocState.activeInvestigatorIndex !== -1 && !!cocState.investigators[cocState.activeInvestigatorIndex]);
                 const activeInvestigatorName = Vue.computed(() => hasActiveInvestigator.value ? cocState.investigators[cocState.activeInvestigatorIndex].name : '');
+                const myRoleInv = Vue.computed(() => {
+                    const ids = Object.keys(multiplayerState.assignments || {});
+                    const myId = multiplayerState.myId || user.uuid;
+                    const key = ids.find(k => multiplayerState.assignments[k] === myId);
+                    if (key === undefined) return null;
+                    const inv = cocState.investigators[Number(key)];
+                    return inv || null;
+                });
                 const selectedRoomMember = Vue.computed(() => multiplayerState.members.find(member => member.id === selectedRoomMemberId.value) || null);
                 const inventoryView = Vue.computed(() => {
                     const inv = cocState.investigators[cocState.activeInvestigatorIndex];
@@ -7629,14 +7624,10 @@ ${buildInvestigatorProfile(inv)}
                     const realPlayers = participants.filter(uid => !uid.startsWith('ai_'));
                     const allActed = realPlayers.every(uid => multiplayerState.roundActionIds.includes(uid));
                     
-                    if (allActed) {
+                    if (allActed && isSingleHost) {
                         await processAiPlayers();
                         multiplayerState.roundActionIds = [];
-                        // 回合推进：AI 回复完毕即为一轮。多人/单人都 +1
                         multiplayerState.roundNumber = (multiplayerState.roundNumber || 0) + 1;
-                        if (!isSingleHost && multiplayerState.isHost) {
-                            broadcastState({ roundActionIds: [] });
-                        }
                         generateResponse();
                     }
                 };
@@ -9458,7 +9449,7 @@ ${buildInvestigatorProfile(inv)}
                 const pushDanmaku = (text, name) => {
                     if (!danmakuEnabled.value) return;
                     const id = 'dm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-                    const duration = 6 + Math.random() * 3;
+                    const duration = 12 + Math.random() * 4;
                     danmakuItems.value.push({ id, text, name, top: 5 + Math.random() * 65, duration });
                     if (danmakuItems.value.length > 40) danmakuItems.value.splice(0, danmakuItems.value.length - 40);
                     setTimeout(() => { danmakuItems.value = danmakuItems.value.filter(d => d.id !== id); }, (duration * 1000) + 400);
@@ -10292,6 +10283,7 @@ ${buildInvestigatorProfile(inv)}
                     if (!multiplayerState.isHost) return;
                     const target = multiplayerState.members.find(m => m.id === targetId);
                     if (!target) return;
+                    if (target.isHost) return showToast('不能踢出房主', 'warning');
                     multiplayerState.members = multiplayerState.members.filter(m => m.id !== targetId);
                     if (!multiplayerState.kickedMembers.some(k => k.id === targetId)) multiplayerState.kickedMembers.push({ id: targetId, name: target.name });
                     broadcastMessage({ type: 'kick_player', userId: targetId });
@@ -10556,7 +10548,7 @@ ${buildInvestigatorProfile(inv)}
                 });
 
                 return {
-                    currentView, showMobileMenu, showMobileRightSidebar, showCharacterDrawer, showAllMembers, selectedRoomMemberId, selectedBindingInvestigatorIndex, hasActiveInvestigator, activeInvestigatorName, selectedRoomMember, selectRoomMember, bindPlayerToCharacter, inventoryView, openCharacterDrawer, closeCharacterDrawer, showMemberCard, memberCardInv, memberCardName, viewMemberCard, closeMemberCard, onMemberTileClick, mobileSettingsSection, mobileSettingsGroups, mobileSettingsTitle, openMobileSettingsSection, backMobileSettings, user, settings, toasts, confirmState, authState, isAdmin, openAdminPanel, refreshRole, handleAuth, handleLogout, showBroadcast, dontShowBroadcast, closeBroadcast,
+                    currentView, showMobileMenu, showMobileRightSidebar, showCharacterDrawer, showAllMembers, selectedRoomMemberId, selectedBindingInvestigatorIndex, hasActiveInvestigator, activeInvestigatorName, myRoleInv, selectedRoomMember, selectRoomMember, bindPlayerToCharacter, inventoryView, openCharacterDrawer, closeCharacterDrawer, showMemberCard, memberCardInv, memberCardName, viewMemberCard, closeMemberCard, onMemberTileClick, mobileSettingsSection, mobileSettingsGroups, mobileSettingsTitle, openMobileSettingsSection, backMobileSettings, user, settings, toasts, confirmState, authState, isAdmin, openAdminPanel, refreshRole, handleAuth, handleLogout, showBroadcast, dontShowBroadcast, closeBroadcast,
                     cloudSyncState, cloudSyncStatusLabel, cloudSyncStatusClass, cloudSyncStatusDotClass, handleManualSync, resolveConflictKeepLocal, resolveConflictUseCloud, resolveConflictMerge,
                     kpRulesByCategory, editingRuleId, toggleRuleEdit, resetRule, addKpRule, deleteKpRule,
                     cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,
