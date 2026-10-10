@@ -5958,7 +5958,7 @@
                 const itemsCooldown = Vue.computed(() => Number(appConfig.value['items.cooldown_ms']) || 0);
                 const selectedItem = ref(null);
                 const itemEffects = ref([]);
-                const ITEM_IMAGES = { sing: 'assets/art/user-edited/sing.webp', fumble: 'assets/art/user-edited/fumble.webp' };
+                const ITEM_IMAGES = { sing: 'assets/art/user-edited/sing.webp', success: 'assets/art/user-edited/success.webp', fumble: 'assets/art/user-edited/fumble.webp', match: 'assets/art/user-edited/match.webp' };
                 let itemsLastUsed = 0;
                 const selectItem = (def) => { if (!def) return; selectedItem.value = (selectedItem.value && selectedItem.value.key === def.key) ? null : def; };
                 const playItemEffect = (item, fromName, toName) => {

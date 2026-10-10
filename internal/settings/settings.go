@@ -37,7 +37,7 @@ var Definitions = []Def{
 	{Key: "danmaku.cooldown_ms", Kind: KindInt, Default: "2000", Public: true},
 	{Key: "items.enabled", Kind: KindBool, Default: "true", Public: true},
 	{Key: "items.cooldown_ms", Kind: KindInt, Default: "30000", Public: true},
-	{Key: "items.defs", Kind: KindJSON, Default: `[{"key":"sing","emoji":"🎤","label":"唱歌"},{"key":"fumble","emoji":"💥","label":"大失败"}]`, Public: true},
+	{Key: "items.defs", Kind: KindJSON, Default: `[{"key":"sing","emoji":"🎤","label":"唱歌","image":"assets/art/user-edited/sing.webp"},{"key":"success","emoji":"🎉","label":"大成功","image":"assets/art/user-edited/success.webp"},{"key":"fumble","emoji":"💥","label":"大失败","image":"assets/art/user-edited/fumble.webp"},{"key":"match","emoji":"💞","label":"配了你","image":"assets/art/user-edited/match.webp"}]`, Public: true},
 	{Key: "lobby.enabled", Kind: KindBool, Default: "true", Public: true},
 	{Key: "friends.enabled", Kind: KindBool, Default: "true", Public: true},
 }
