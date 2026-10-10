@@ -8,9 +8,10 @@ node_modules/
 www/
 *.log
 
-# Environment (never commit secrets)
+# Environment (never commit secrets; keep the example)
 .env
 .env.*
+!.env.example
 
 # Image-generation source masters are not deployment assets.
 tmp/
