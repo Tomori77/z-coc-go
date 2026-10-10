@@ -953,7 +953,7 @@
             --z-art-mobile-position: 42% 42%;
             --z-art-cool: rgba(60,104,110,.08);
         }
-        .z-art-friends, .z-art-broadcast {
+        .z-art-friends, .z-art-broadcast, .z-art-lobby {
             --z-art-image: url("./assets/art/generated/radio-receiver-1923.webp");
             --z-art-position: center 54%;
             --z-art-mobile-position: 30% 52%;
@@ -1552,6 +1552,7 @@
         }
         .z-mode-choice--single { --z-choice-art: url("./assets/art/generated/scene-new-england-street-1926.webp"); }
         .z-mode-choice--multi { --z-choice-art: url("./assets/art/generated/mode-multiplayer-occult-link-v2.webp"); }
+        .z-mode-choice--lobby { --z-choice-art: url("./assets/art/generated/radio-receiver-1923.webp"); }
         .z-mode-choice--multi::before {
             background:
                 linear-gradient(90deg, rgba(3,8,12,.98) 0 28%, rgba(3,8,12,.68) 47%, rgba(3,8,12,.12) 68%, rgba(3,8,12,.03)),
@@ -1562,6 +1563,7 @@
         }
         .z-mode-choice--single::after { content: "CASE ROUTE / 01"; }
         .z-mode-choice--multi::after { content: "CASE ROUTE / 02"; }
+        .z-mode-choice--lobby::after { content: "CASE ROUTE / 03"; }
         .z-mode-choice-art { display: none; }
         .z-mode-choice > .absolute { display: none; }
         .z-mode-choice .z-mode-symbol,
@@ -1573,8 +1575,11 @@
         }
         .z-mode-choice--multi .z-mode-symbol,
         .z-mode-choice--multi .w-16.h-16 { border-color: rgba(77,168,151,.3) !important; }
+        .z-mode-choice--lobby .z-mode-symbol,
+        .z-mode-choice--lobby .w-16.h-16 { border-color: rgba(77,168,151,.3) !important; }
         .z-mode-choice > .relative { max-width: 72%; }
         .z-mode-choice--multi > .relative { max-width: 58%; }
+        .z-mode-choice--lobby > .relative { max-width: 58%; }
         .z-mode-choice p { color: rgba(182,192,192,.78) !important; text-wrap: pretty; }
 
         .z-memory-view { padding-bottom: 3rem !important; }
@@ -2059,11 +2064,6 @@
                     <div class="absolute inset-0 bg-gradient-to-r from-mystic-green/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <svg class="w-5 h-5 mr-3 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
                     <span class="relative z-10">聆听低语</span>
-                </button>
-                <button @click="currentView = 'multiplayer'; showMobileMenu = false" :class="['z-sidebar-tab w-full flex items-center px-4 py-3.5 rounded-lg transition-all duration-300 font-bold tracking-wide border group relative overflow-hidden', currentView === 'multiplayer' ? 'z-active bg-mystic-green/10 border-mystic-green/40 text-mystic-green shadow-glow-green' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-800 hover:border-dark-700']">
-                    <div class="absolute inset-0 bg-gradient-to-r from-mystic-green/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <svg class="w-5 h-5 mr-3 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 5.303a3.75 3.75 0 000-5.303m-7.425 7.425a6 6 0 010-8.485m9.546 0a6 6 0 010 8.485M12 12h.01"></path></svg>
-                    <span class="relative z-10">联机大厅</span>
                 </button>
                 <button @click="if(cocState.gameState !== 'playing') { currentView = 'coc'; showMobileMenu = false; }" :class="['z-sidebar-tab w-full flex items-center px-4 py-3.5 rounded-lg transition-all duration-300 font-bold tracking-wide border group relative overflow-hidden', currentView === 'coc' ? 'z-active bg-mystic-gold/10 border-mystic-gold/40 text-mystic-gold shadow-glow-gold' : (cocState.gameState === 'playing' ? 'opacity-50 cursor-not-allowed text-slate-600 border-transparent' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-800 hover:border-dark-700')]">
                     <div class="absolute inset-0 bg-gradient-to-r from-mystic-gold/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -2734,6 +2734,14 @@
                                     <div class="mt-4 inline-flex items-center text-xs font-bold px-3 py-1 rounded border" :class="multiplayerState.inRoom ? 'bg-mystic-green/10 text-mystic-green border-mystic-green/30' : 'bg-red-900/10 text-red-400 border-red-900/30'">{{ multiplayerState.inRoom ? `已连接: ${multiplayerState.roomId}` : '未连接房间' }}</div>
                                 </div>
                             </div>
+                            <div @click="currentView = 'lobby'" @keydown.enter.prevent="currentView = 'lobby'" @keydown.space.prevent="currentView = 'lobby'" role="button" tabindex="0" class="z-mode-choice z-mode-choice--lobby group glass-panel p-8 border border-dark-700 hover:border-mystic-green transition-all cursor-pointer relative overflow-hidden">
+                                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><svg class="w-32 h-32 text-mystic-green" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 00-10 10 10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2zm0 4a6 6 0 016 6 6 6 0 01-6 6 6 6 0 01-6-6 6 6 0 016-6zm0 4a2 2 0 00-2 2 2 2 0 002 2 2 2 0 002-2 2 2 0 00-2-2z"/></svg></div>
+                                <div class="relative z-10">
+                                    <div class="w-16 h-16 bg-dark-900 text-mystic-green border border-dark-700 rounded flex items-center justify-center mb-6 shadow-lg group-hover:shadow-mystic-green/20 transition-shadow"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 5.303a3.75 3.75 0 000-5.303m-7.425 7.425a6 6 0 010-8.485m9.546 0a6 6 0 010 8.485M12 12h.01"></path></svg></div>
+                                    <h3 class="text-2xl font-bold mb-3 text-slate-200 group-hover:text-mystic-green transition-colors font-serif">联机大厅</h3>
+                                    <p class="text-slate-500 text-sm leading-relaxed">浏览公开房间，直接加入同伴的冒险。</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2770,38 +2778,47 @@
                         </label>
                      </div>
 
-                     <div class="mt-6 border-t border-dark-700 pt-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-sm font-bold text-slate-300 font-serif tracking-widest flex items-center"><span class="w-1 h-4 bg-mystic-green mr-2"></span>公开房间</h3>
-                            <button @click="refreshLobby()" :disabled="lobbyLoading" class="text-[11px] text-slate-500 hover:text-mystic-green transition-colors disabled:opacity-50" title="刷新列表">{{ lobbyLoading ? '刷新中...' : '刷新' }}</button>
-                        </div>
-                        <div v-if="publicRooms.length" class="space-y-3 max-h-72 overflow-y-auto pr-1">
-                            <div v-for="room in publicRooms" :key="room.room_id" class="p-3 bg-dark-800/60 border border-dark-700 rounded-lg hover:border-mystic-green/40 transition-colors">
-                                <div class="flex items-start gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <div class="text-sm font-bold text-slate-200 truncate">{{ room.name || room.module_name || '未选择剧本' }}</div>
-                                        <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                                            <span class="truncate">{{ room.host_name || room.host_id }}</span>
-                                            <span class="font-mono tracking-wider shrink-0">{{ room.room_id }}</span>
-                                        </div>
-                                    </div>
-                                    <button @click="joinPublicRoom(room)" class="shrink-0 px-3 py-1.5 bg-dark-800 text-mystic-green border border-mystic-green/30 rounded text-xs font-bold hover:bg-mystic-green hover:text-dark-950 transition-all">加入</button>
+                     <div class="mt-8 text-center">
+                        <button @click="currentView = 'coc'" class="text-slate-500 hover:text-slate-300 text-sm underline decoration-slate-700 underline-offset-4">返回</button>
+                     </div>
+                </div>
+            </div>
+
+            <!-- 2.6 Lobby View (Public Rooms) -->
+            <div v-if="currentView === 'lobby'" class="z-art-view z-art-lobby h-full overflow-y-auto p-4 md:p-8 animate-fade-in bg-dark-950">
+                <div class="max-w-5xl mx-auto">
+                    <div class="flex items-center justify-between gap-4 mb-8">
+                        <h2 class="text-2xl font-bold text-mystic-gold font-serif">联机大厅</h2>
+                        <button @click="refreshLobby()" :disabled="lobbyLoading" class="flex items-center gap-2 px-3 py-2 bg-dark-800 border border-dark-700 rounded text-xs font-bold text-slate-400 hover:text-mystic-green hover:border-mystic-green/40 transition-all disabled:opacity-50" title="刷新列表">
+                            <svg class="w-4 h-4" :class="lobbyLoading ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <span>{{ lobbyLoading ? '刷新中...' : '刷新' }}</span>
+                        </button>
+                    </div>
+                    <div v-if="publicRooms.length" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div v-for="room in publicRooms" :key="room.room_id" class="glass-panel p-4 rounded-lg border border-dark-700 hover:border-mystic-green/40 transition-colors flex flex-col">
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm font-bold text-slate-200 truncate" :title="room.name || room.module_name || '未选择剧本'">{{ room.name || room.module_name || '未选择剧本' }}</div>
+                                <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-1">
+                                    <span class="truncate">{{ room.host_name || room.host_id }}</span>
+                                    <span class="font-mono tracking-wider shrink-0">{{ room.room_id }}</span>
                                 </div>
-                                <div class="flex items-center gap-1.5 mt-2.5">
+                            </div>
+                            <div class="flex items-end justify-between gap-2 mt-3">
+                                <div class="flex items-center gap-1.5 min-w-0">
                                     <template v-for="m in (room.members || [])" :key="m.user_id">
                                         <img v-if="m.avatar" :src="m.avatar" :title="m.name" alt="" class="w-6 h-6 rounded-full object-cover border border-dark-600 shrink-0">
                                         <span v-else :title="m.name" class="w-6 h-6 rounded-full bg-dark-900 border border-dark-600 flex items-center justify-center text-slate-400 text-[10px] shrink-0">{{ (m.name || '?').charAt(0) }}</span>
                                     </template>
                                     <span v-if="room.member_count > (room.members ? room.members.length : 0)" class="h-6 px-1.5 rounded-full bg-dark-900 border border-dark-600 flex items-center justify-center text-slate-400 text-[10px] shrink-0">+{{ room.member_count - (room.members ? room.members.length : 0) }}</span>
                                 </div>
+                                <button @click="joinPublicRoom(room)" class="shrink-0 px-3 py-1.5 bg-dark-800 text-mystic-green border border-mystic-green/30 rounded text-xs font-bold hover:bg-mystic-green hover:text-dark-950 transition-all">加入</button>
                             </div>
                         </div>
-                        <div v-else class="text-center py-6 text-slate-600 text-xs italic border border-dark-800 border-dashed rounded">暂无公开房间</div>
-                     </div>
-                     
-                     <div class="mt-8 text-center">
+                    </div>
+                    <div v-else class="text-center py-16 text-slate-600 text-sm italic border border-dark-800 border-dashed rounded bg-dark-900/20 font-serif">暂无公开房间</div>
+                    <div class="mt-8 text-center">
                         <button @click="currentView = 'coc'" class="text-slate-500 hover:text-slate-300 text-sm underline decoration-slate-700 underline-offset-4">返回</button>
-                     </div>
+                    </div>
                 </div>
             </div>
 
@@ -4401,7 +4418,7 @@
                             </h3>
                             <div class="space-y-6 text-slate-400 text-sm font-serif leading-relaxed">
                                 <p>在正式开启调查前，命运的权衡不可或缺。点击侧边栏的「命运天平」图标进入评估室。</p>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                                     <div class="space-y-4">
                                         <p class="text-slate-200 font-bold flex items-center gap-2"><span class="w-2 h-2 bg-mystic-purple rounded-full"></span> 模组情报汇聚</p>
                                         <p>点击「寻获模组卷宗」上传您的剧本。系统支持<strong>增量上传</strong>：您可以先后上传正文、NPC表、以及模组相关的插图。AI 视觉会自动转译图像中的氛围信息，使评估结果更客观。</p>
@@ -4821,7 +4838,7 @@
                     if (view !== 'settings') mobileSettingsSection.value = 'menu';
                     if (view === 'friends') { refreshFriends(); startFriendPolling(); }
                     else stopFriendPolling();
-                    if (view === 'multiplayer') { refreshLobby(); startLobbyPolling(); }
+                    if (view === 'lobby') { refreshLobby(); startLobbyPolling(); }
                     else stopLobbyPolling();
                 });
                 const toasts = ref([]);
