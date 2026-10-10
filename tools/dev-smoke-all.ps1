@@ -50,6 +50,10 @@ if (-not $SkipBuild) {
 }
 
 Write-Host "[start] $url" -ForegroundColor Cyan
+# Ensure the smoke admin account is bootstrapped, preserving any existing value.
+$adminEmails = 'smoke-admin@example.com'
+if ($env:ADMIN_EMAILS) { $adminEmails = "$($env:ADMIN_EMAILS),$adminEmails" }
+$env:ADMIN_EMAILS = $adminEmails
 $proc = Start-Process -FilePath (Join-Path $root 'z-coc.exe') -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errLog
 $proc.Id | Set-Content $pidFile
 
@@ -71,7 +75,8 @@ try {
     $suites = @(
         @{ name = 'base';    file = 'api-smoke.ps1' },
         @{ name = 'friends'; file = 'api-smoke-friends.ps1' },
-        @{ name = 'lobby';   file = 'api-smoke-lobby.ps1' }
+        @{ name = 'lobby';   file = 'api-smoke-lobby.ps1' },
+        @{ name = 'admin';   file = 'api-smoke-admin.ps1' }
     )
     $failed = 0
     foreach ($s in $suites) {

@@ -106,6 +106,21 @@ func (s *Server) dbLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	banned, _, err := s.store.IsUserBannedByUUID(r.Context(), userUUID)
+	if err != nil {
+		errorJSON(w, http.StatusInternalServerError, "登录暂时不可用")
+		return
+	}
+	if banned {
+		errorJSON(w, http.StatusForbidden, "账号已被封禁")
+		return
+	}
+
+	// Bootstrap admin role for configured addresses on every successful login.
+	if s.cfg.IsAdminEmail(email) {
+		_ = s.store.SetUserRole(r.Context(), userUUID, "admin")
+	}
+
 	authToken := auth.NewToken()
 	tokenHash := auth.Sha256Hex(authToken)
 	if err := s.store.UpdateAuthToken(r.Context(), userUUID, tokenHash); err != nil {

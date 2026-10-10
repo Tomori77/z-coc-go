@@ -33,6 +33,7 @@ type DBConfig struct {
 type Config struct {
 	DB             DBConfig
 	AllowedOrigins []string
+	AdminEmails    []string
 	Port           string
 
 	MaxSyncBytes    int64
@@ -142,6 +143,15 @@ func Load() *Config {
 		}
 	}
 
+	var adminEmails []string
+	if raw, ok := os.LookupEnv("ADMIN_EMAILS"); ok {
+		for _, part := range strings.Split(raw, ",") {
+			if part = strings.TrimSpace(part); part != "" {
+				adminEmails = append(adminEmails, part)
+			}
+		}
+	}
+
 	port := os.Getenv("APP_PORT")
 	if port == "" {
 		port = "8080"
@@ -150,6 +160,7 @@ func Load() *Config {
 	return &Config{
 		DB:              db,
 		AllowedOrigins:  origins,
+		AdminEmails:     adminEmails,
 		Port:            port,
 		MaxSyncBytes:    DefaultMaxSyncBytes,
 		MaxContentBytes: DefaultMaxContentBytes,
@@ -179,6 +190,21 @@ func (c *Config) Validate() error {
 func (c *Config) OriginAllowed(origin string) bool {
 	for _, allowed := range c.AllowedOrigins {
 		if allowed == origin {
+			return true
+		}
+	}
+	return false
+}
+
+// IsAdminEmail reports whether email matches one of the configured admin
+// addresses, comparing case-insensitively on trimmed values.
+func (c *Config) IsAdminEmail(email string) bool {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return false
+	}
+	for _, admin := range c.AdminEmails {
+		if strings.ToLower(admin) == email {
 			return true
 		}
 	}

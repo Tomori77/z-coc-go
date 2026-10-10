@@ -35,6 +35,12 @@ func main() {
 
 	store.EnsureSchema(ctx, st, logger)
 
+	if promoted, err := st.PromoteAdminsByEmail(ctx, cfg.AdminEmails); err != nil {
+		logger.Warn("admin promotion failed", "error", err)
+	} else if promoted > 0 {
+		logger.Info("promoted admin accounts", "count", promoted)
+	}
+
 	limiter := ratelimit.New(st, logger)
 	api := httpapi.New(cfg, st, limiter, logger)
 	defer api.Close()

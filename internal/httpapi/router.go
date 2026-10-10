@@ -61,6 +61,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/friend_api.php", friendAPI)
 	mux.HandleFunc("/friend_api", friendAPI)
 
+	adminAPI := s.wrap(s.withCORS("GET, POST, OPTIONS", s.handleAdminAPI))
+	mux.HandleFunc("/admin_api.php", adminAPI)
+	mux.HandleFunc("/admin_api", adminAPI)
+
 	download := s.wrap(s.withCORS("POST, OPTIONS", s.handleDownload))
 	mux.HandleFunc("/dl/download.php", download)
 	mux.HandleFunc("/download.php", download)

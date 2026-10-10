@@ -21,6 +21,7 @@ services:
       PGSQL_PASSWORD: ${PGSQL_PASSWORD:?请在 .env 填写数据库密码}
       PGSQL_DATABASE: ${PGSQL_DATABASE:?请在 .env 填写数据库名}
       APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
 networks:
   zcoc-net:
     external: true

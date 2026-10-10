@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>z-coc 管理后台</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;600;700&family=Noto+Serif+SC:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/tailwind.css">
+    <script src="../assets/js/app-runtime.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background-color: #020617;
+            color: #cbd5e1;
+            font-family: 'Noto Serif SC', serif;
+        }
+        [v-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+        th, td { vertical-align: middle; }
+    </style>
+</head>
+<body class="selection:bg-purple-900 selection:text-purple-100">
+    <div id="app" v-cloak class="h-full flex flex-col relative bg-dark-950 text-slate-300">
+
+        <!-- Header -->
+        <div class="h-14 md:h-16 border-b border-dark-800 bg-dark-900/80 backdrop-blur flex items-center justify-between px-3 md:px-6 z-10 shrink-0">
+            <div class="flex items-center gap-3 min-w-0">
+                <a href="../index.html" class="flex items-center text-slate-400 hover:text-white transition-colors whitespace-nowrap shrink-0">
+                    <svg class="w-6 h-6 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    <span class="font-bold text-sm tracking-widest uppercase hidden md:inline">返回大厅</span>
+                </a>
+                <div class="font-bold text-base md:text-xl text-purple-400 font-serif flex items-center gap-2 min-w-0">
+                    <svg class="w-5 h-5 md:w-6 md:h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span class="truncate">z-coc 管理后台</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 md:gap-3 shrink-0">
+                <span class="text-xs hidden sm:inline"
+                      :class="{ 'text-mystic-green': authed, 'text-red-400': forbidden, 'text-slate-500': !authed && !forbidden }">{{ statusText }}</span>
+                <span v-if="token" class="text-[10px] font-mono text-slate-600 hidden lg:inline">{{ maskedToken }}</span>
+                <button @click="refreshAll" :disabled="overviewLoading"
+                        class="px-3 py-1.5 rounded-lg bg-dark-800 border border-dark-700 text-xs font-bold text-slate-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span v-if="overviewLoading" class="animate-pulse">刷新中…</span>
+                    <span v-else>刷新</span>
+                </button>
+                <button v-if="token" @click="logout"
+                        class="px-3 py-1.5 rounded-lg bg-dark-800 border border-red-500/30 text-xs font-bold text-red-400 hover:bg-red-900/30 transition-colors">退出</button>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div class="fixed top-20 left-1/2 transform -translate-x-1/2 z-[9999] flex flex-col gap-2 pointer-events-none items-center w-full max-w-sm px-4">
+            <transition-group name="list" tag="div" class="flex flex-col items-center w-full">
+                <div v-for="toast in toasts" :key="toast.id"
+                     class="pointer-events-auto flex items-center px-4 py-3 rounded-xl shadow-2xl border bg-dark-900/95 backdrop-blur-md text-sm font-medium w-full"
+                     :class="{
+                        'border-mystic-green/50 text-mystic-green': toast.type === 'success',
+                        'border-red-500/50 text-red-400': toast.type === 'error',
+                        'border-blue-500/50 text-blue-400': toast.type === 'info',
+                        'border-mystic-gold/50 text-mystic-gold': toast.type === 'warning'
+                     }">
+                    <span class="flex-1">{{ toast.message }}</span>
+                </div>
+            </transition-group>
+        </div>
+
+        <!-- Login gate -->
+        <div v-if="!authed" class="flex-1 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+            <div class="w-full max-w-sm bg-dark-900 border border-dark-800 rounded-2xl shadow-2xl p-6">
+                <h2 class="text-xl font-bold text-purple-400 font-serif flex items-center gap-2 mb-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    管理员登录
+                </h2>
+                <p class="text-xs text-slate-500 mb-4">请使用拥有管理员权限的账号登录</p>
+
+                <div v-if="forbidden" class="mb-3 px-3 py-2 rounded-lg bg-red-900/30 border border-red-500/30 text-red-400 text-xs leading-relaxed">
+                    无管理员权限，当前账号无法访问管理后台，请更换账号登录。
+                </div>
+                <div v-else-if="authError" class="mb-3 px-3 py-2 rounded-lg bg-red-900/30 border border-red-500/30 text-red-400 text-xs leading-relaxed">
+                    {{ authError }}
+                </div>
+
+                <form @submit.prevent="handleLogin" class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1">邮箱</label>
+                        <input v-model.trim="loginForm.email" type="email" autocomplete="username" placeholder="you@example.com"
+                               class="w-full bg-dark-950 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-purple-500 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 uppercase tracking-wider mb-1">密码</label>
+                        <input v-model="loginForm.password" type="password" autocomplete="current-password" placeholder="••••••••"
+                               class="w-full bg-dark-950 border border-dark-700 rounded-lg px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-purple-500 transition-colors">
+                    </div>
+                    <button type="submit" :disabled="loggingIn"
+                            class="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold text-sm shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        <svg v-if="loggingIn" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        {{ loggingIn ? '登录中…' : '登录' }}
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div v-else class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar animate-fade-in">
+            <div class="max-w-6xl mx-auto">
+
+                <!-- Tabs -->
+                <div class="flex flex-wrap gap-2 mb-6">
+                    <button v-for="t in tabs" :key="t.key" @click="switchTab(t.key)"
+                            class="px-4 py-2 rounded-lg text-sm font-bold border transition-colors"
+                            :class="tab === t.key ? 'bg-purple-600 text-white border-purple-500/30' : 'bg-dark-900 text-slate-400 border-dark-800 hover:text-slate-200 hover:border-dark-700'">
+                        {{ t.label }}
+                    </button>
+                </div>
+
+                <!-- Overview -->
+                <div v-if="tab === 'overview'">
+                    <div v-if="overviewLoading" class="text-center py-20 text-purple-400 animate-pulse">正在加载概览…</div>
+                    <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div v-for="card in statCards" :key="card.key" class="bg-dark-900 border border-dark-800 rounded-xl p-4">
+                            <div class="text-xs text-slate-500 uppercase tracking-wider">{{ card.label }}</div>
+                            <div class="text-2xl md:text-3xl font-bold mt-2" :class="card.color">{{ stats[card.key] }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users -->
+                <div v-if="tab === 'users'">
+                    <div class="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+                        <input v-model.trim="usersQuery" @keyup.enter="searchUsers" placeholder="搜索邮箱或 UUID…"
+                               class="w-full md:w-72 bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-sm text-slate-300 outline-none focus:border-purple-500 transition-colors">
+                        <button @click="searchUsers" class="px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors">搜索</button>
+                        <span class="text-xs text-slate-500 ml-auto">共 {{ usersTotal }} 位用户</span>
+                    </div>
+                    <div v-if="usersLoading" class="text-center py-16 text-purple-400 animate-pulse">正在加载用户…</div>
+                    <div v-else class="overflow-x-auto border border-dark-800 rounded-xl">
+                        <table class="w-full text-xs text-left whitespace-nowrap">
+                            <thead class="bg-dark-900 text-slate-500 uppercase tracking-wider">
+                                <tr>
+                                    <th class="px-3 py-2 font-medium">邮箱</th>
+                                    <th class="px-3 py-2 font-medium">UUID</th>
+                                    <th class="px-3 py-2 font-medium">角色</th>
+                                    <th class="px-3 py-2 font-medium">状态</th>
+                                    <th class="px-3 py-2 font-medium">注册时间</th>
+                                    <th class="px-3 py-2 font-medium text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-dark-800">
+                                <tr v-for="u in users" :key="u.uuid" class="hover:bg-dark-800/50 transition-colors">
+                                    <td class="px-3 py-2 text-slate-200">{{ u.email }}</td>
+                                    <td class="px-3 py-2 font-mono text-slate-500" :title="u.uuid">{{ shortId(u.uuid) }}</td>
+                                    <td class="px-3 py-2">
+                                        <span class="px-1.5 py-0.5 rounded border"
+                                              :class="u.role === 'admin' ? 'bg-purple-900/30 text-purple-400 border-purple-500/30' : 'bg-dark-800 text-slate-400 border-dark-700'">
+                                            {{ u.role === 'admin' ? '管理员' : '用户' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <span v-if="u.banned" class="px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-500/30">已封禁</span>
+                                        <span v-else class="px-1.5 py-0.5 rounded bg-mystic-green/10 text-mystic-green border border-mystic-green/30">正常</span>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-500">{{ formatTime(u.created_at) }}</td>
+                                    <td class="px-3 py-2">
+                                        <div class="flex items-center justify-end gap-1.5">
+                                            <button @click="toggleBan(u)"
+                                                    class="px-2 py-1 rounded border text-[11px] transition-colors"
+                                                    :class="u.banned ? 'border-mystic-green/30 text-mystic-green hover:bg-mystic-green/10' : 'border-red-500/30 text-red-400 hover:bg-red-900/30'">
+                                                {{ u.banned ? '解封' : '封禁' }}
+                                            </button>
+                                            <button @click="forceLogout(u)" class="px-2 py-1 rounded border border-dark-700 text-slate-400 hover:text-slate-200 text-[11px] transition-colors">强制下线</button>
+                                            <button @click="toggleRole(u)" class="px-2 py-1 rounded border border-purple-500/30 text-purple-400 hover:bg-dark-800 text-[11px] transition-colors">
+                                                {{ u.role === 'admin' ? '取消管理员' : '设为管理员' }}
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr v-if="users.length === 0">
+                                    <td colspan="6" class="px-3 py-10 text-center text-slate-600">没有匹配的用户</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 mt-3 text-xs text-slate-500">
+                        <button @click="changeUsersPage(-1)" :disabled="usersOffset <= 0"
+                                class="px-3 py-1 rounded border border-dark-700 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">上一页</button>
+                        <span>第 {{ usersOffset + 1 }} - {{ Math.min(usersOffset + usersLimit, usersTotal) }} 条</span>
+                        <button @click="changeUsersPage(1)" :disabled="usersOffset + usersLimit >= usersTotal"
+                                class="px-3 py-1 rounded border border-dark-700 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">下一页</button>
+                    </div>
+                </div>
+
+                <!-- Rooms -->
+                <div v-if="tab === 'rooms'">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs text-slate-500">共 {{ rooms.length }} 个进行中的房间</span>
+                    </div>
+                    <div v-if="roomsLoading" class="text-center py-16 text-purple-400 animate-pulse">正在加载房间…</div>
+                    <div v-else class="overflow-x-auto border border-dark-800 rounded-xl">
+                        <table class="w-full text-xs text-left whitespace-nowrap">
+                            <thead class="bg-dark-900 text-slate-500 uppercase tracking-wider">
+                                <tr>
+                                    <th class="px-3 py-2 font-medium">房间 / 模组</th>
+                                    <th class="px-3 py-2 font-medium">房间号</th>
+                                    <th class="px-3 py-2 font-medium">房主</th>
+                                    <th class="px-3 py-2 font-medium">可见性</th>
+                                    <th class="px-3 py-2 font-medium">人数</th>
+                                    <th class="px-3 py-2 font-medium">创建时间</th>
+                                    <th class="px-3 py-2 font-medium text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-dark-800">
+                                <tr v-for="r in rooms" :key="r.room_id" class="hover:bg-dark-800/50 transition-colors">
+                                    <td class="px-3 py-2 text-slate-200 truncate" style="max-width: 16rem;" :title="r.name">{{ r.name || '未知模组' }}</td>
+                                    <td class="px-3 py-2 font-mono text-slate-500" :title="r.room_id">{{ shortId(r.room_id) }}</td>
+                                    <td class="px-3 py-2 text-slate-300">
+                                        <div class="flex items-center gap-1.5">
+                                            <img v-if="r.host_avatar" :src="r.host_avatar" alt="" class="w-5 h-5 rounded-full border border-dark-700">
+                                            <span>{{ r.host_name || '佚名' }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <span v-if="r.is_public" class="px-1.5 py-0.5 rounded bg-teal-900/30 text-teal-400 border border-teal-500/30">公开</span>
+                                        <span v-else class="px-1.5 py-0.5 rounded bg-dark-800 text-slate-400 border border-dark-700">私有</span>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-400">{{ r.member_count ?? 0 }}</td>
+                                    <td class="px-3 py-2 text-slate-500">{{ formatTime(r.created_at) }}</td>
+                                    <td class="px-3 py-2 text-right">
+                                        <button @click="closeRoom(r)" class="px-2 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-900/30 text-[11px] transition-colors">关闭房间</button>
+                                    </td>
+                                </tr>
+                                <tr v-if="rooms.length === 0">
+                                    <td colspan="7" class="px-3 py-10 text-center text-slate-600">当前没有进行中的房间</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Modules -->
+                <div v-if="tab === 'modules'">
+                    <div class="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+                        <input v-model.trim="modulesQuery" @keyup.enter="searchModules" placeholder="搜索模组标题或作者…"
+                               class="w-full md:w-72 bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-sm text-slate-300 outline-none focus:border-purple-500 transition-colors">
+                        <button @click="searchModules" class="px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors">搜索</button>
+                        <span class="text-xs text-slate-500 ml-auto">共 {{ modulesTotal }} 个模组</span>
+                    </div>
+                    <div v-if="modulesLoading" class="text-center py-16 text-purple-400 animate-pulse">正在加载模组…</div>
+                    <div v-else class="overflow-x-auto border border-dark-800 rounded-xl">
+                        <table class="w-full text-xs text-left whitespace-nowrap">
+                            <thead class="bg-dark-900 text-slate-500 uppercase tracking-wider">
+                                <tr>
+                                    <th class="px-3 py-2 font-medium">标题</th>
+                                    <th class="px-3 py-2 font-medium">类型</th>
+                                    <th class="px-3 py-2 font-medium">作者</th>
+                                    <th class="px-3 py-2 font-medium">下载</th>
+                                    <th class="px-3 py-2 font-medium">字数</th>
+                                    <th class="px-3 py-2 font-medium">创建时间</th>
+                                    <th class="px-3 py-2 font-medium text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-dark-800">
+                                <tr v-for="m in modules" :key="m.id" class="hover:bg-dark-800/50 transition-colors">
+                                    <td class="px-3 py-2 text-slate-200 truncate" style="max-width: 16rem;" :title="m.title">{{ m.title || '未命名' }}</td>
+                                    <td class="px-3 py-2">
+                                        <span class="px-1.5 py-0.5 rounded border"
+                                              :class="m.type === 'reprint' ? 'bg-blue-900/30 text-blue-400 border-blue-500/30' : 'bg-purple-900/30 text-purple-400 border-purple-500/30'">
+                                            {{ m.type === 'reprint' ? '搬运' : (m.type === 'ai_adapt_private' ? '私有改编' : '原创') }}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-400">{{ m.author_name || '佚名' }}</td>
+                                    <td class="px-3 py-2 text-slate-400">{{ m.downloads ?? 0 }}</td>
+                                    <td class="px-3 py-2 text-slate-400">{{ m.content_length ?? 0 }}</td>
+                                    <td class="px-3 py-2 text-slate-500">{{ formatTime(m.created_at) }}</td>
+                                    <td class="px-3 py-2 text-right">
+                                        <button @click="deleteModule(m)" class="px-2 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-900/30 text-[11px] transition-colors">删除</button>
+                                    </td>
+                                </tr>
+                                <tr v-if="modules.length === 0">
+                                    <td colspan="7" class="px-3 py-10 text-center text-slate-600">没有匹配的模组</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 mt-3 text-xs text-slate-500">
+                        <button @click="changeModulesPage(-1)" :disabled="modulesOffset <= 0"
+                                class="px-3 py-1 rounded border border-dark-700 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">上一页</button>
+                        <span>第 {{ modulesOffset + 1 }} - {{ Math.min(modulesOffset + modulesLimit, modulesTotal) }} 条</span>
+                        <button @click="changeModulesPage(1)" :disabled="modulesOffset + modulesLimit >= modulesTotal"
+                                class="px-3 py-1 rounded border border-dark-700 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">下一页</button>
+                    </div>
+                </div>
+
+                <!-- Audit -->
+                <div v-if="tab === 'audit'">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs text-slate-500">共 {{ auditTotal }} 条审计记录</span>
+                    </div>
+                    <div v-if="auditLoading" class="text-center py-16 text-purple-400 animate-pulse">正在加载审计记录…</div>
+                    <div v-else class="overflow-x-auto border border-dark-800 rounded-xl">
+                        <table class="w-full text-xs text-left whitespace-nowrap">
+                            <thead class="bg-dark-900 text-slate-500 uppercase tracking-wider">
+                                <tr>
+                                    <th class="px-3 py-2 font-medium">时间</th>
+                                    <th class="px-3 py-2 font-medium">管理员</th>
+                                    <th class="px-3 py-2 font-medium">操作</th>
+                                    <th class="px-3 py-2 font-medium">对象</th>
+                                    <th class="px-3 py-2 font-medium">详情</th>
+                                    <th class="px-3 py-2 font-medium">IP</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-dark-800">
+                                <tr v-for="a in audit" :key="a.id" class="hover:bg-dark-800/50 transition-colors">
+                                    <td class="px-3 py-2 text-slate-500">{{ formatTime(a.created_at) }}</td>
+                                    <td class="px-3 py-2 text-slate-300">{{ a.admin_email || shortId(a.admin_uuid) }}</td>
+                                    <td class="px-3 py-2 text-purple-400 font-mono">{{ a.action }}</td>
+                                    <td class="px-3 py-2 text-slate-400 font-mono" :title="a.target">{{ shortId(a.target) }}</td>
+                                    <td class="px-3 py-2 text-slate-400 truncate" style="max-width: 240px;" :title="a.detail">{{ a.detail || '-' }}</td>
+                                    <td class="px-3 py-2 text-slate-500 font-mono">{{ a.ip || '-' }}</td>
+                                </tr>
+                                <tr v-if="audit.length === 0">
+                                    <td colspan="6" class="px-3 py-10 text-center text-slate-600">暂无审计记录</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 mt-3 text-xs text-slate-500">
+                        <button @click="changeAuditPage(-1)" :disabled="auditOffset <= 0"
+                                class="px-3 py-1 rounded border border-dark-700 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">上一页</button>
+                        <span>第 {{ auditOffset + 1 }} - {{ Math.min(auditOffset + auditLimit, auditTotal) }} 条</span>
+                        <button @click="changeAuditPage(1)" :disabled="auditOffset + auditLimit >= auditTotal"
+                                class="px-3 py-1 rounded border border-dark-700 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">下一页</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const ADMIN_BASE = window.ZCOC_RUNTIME.apiUrl('../admin_api.php');
+                const AUTH_BASE = window.ZCOC_RUNTIME.apiUrl('../db_api.php');
+                const TOKEN_KEY = 'coc_auth_token';
+
+                const token = ref(localStorage.getItem(TOKEN_KEY) || '');
+                const authed = ref(false);
+                const forbidden = ref(false);
+                const authError = ref('');
+                const loggingIn = ref(false);
+                const loginForm = reactive({
+                    email: localStorage.getItem('coc_remembered_email') || '',
+                    password: ''
+                });
+
+                const toasts = ref([]);
+                const showToast = (message, type = 'info') => {
+                    const id = Date.now() + Math.random();
+                    toasts.value.push({ id, message, type });
+                    setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id); }, 3200);
+                };
+
+                const maskedToken = computed(() => {
+                    const t = token.value || '';
+                    if (!t) return '';
+                    return t.length > 12 ? `${t.slice(0, 6)}…${t.slice(-4)}` : t;
+                });
+
+                const statusText = computed(() => {
+                    if (forbidden.value) return '无管理员权限';
+                    if (authed.value) return '已认证';
+                    if (!token.value) return '未登录';
+                    return '校验中…';
+                });
+
+                const tabs = [
+                    { key: 'overview', label: '概览' },
+                    { key: 'users', label: '用户' },
+                    { key: 'rooms', label: '房间' },
+                    { key: 'modules', label: '模组' },
+                    { key: 'audit', label: '审计' }
+                ];
+                const tab = ref('overview');
+
+                const stats = reactive({
+                    users: 0, banned_users: 0, rooms_active: 0,
+                    rooms_public: 0, modules: 0, audits: 0
+                });
+                const statCards = [
+                    { key: 'users', label: '用户总数', color: 'text-slate-100' },
+                    { key: 'banned_users', label: '封禁用户', color: 'text-red-400' },
+                    { key: 'rooms_active', label: '活跃房间', color: 'text-mystic-green' },
+                    { key: 'rooms_public', label: '公开房间', color: 'text-teal-400' },
+                    { key: 'modules', label: '模组总数', color: 'text-purple-400' },
+                    { key: 'audits', label: '审计记录', color: 'text-mystic-gold' }
+                ];
+                const overviewLoading = ref(false);
+
+                const users = ref([]);
+                const usersTotal = ref(0);
+                const usersQuery = ref('');
+                const usersLimit = ref(20);
+                const usersOffset = ref(0);
+                const usersLoading = ref(false);
+                const usersLoaded = ref(false);
+
+                const rooms = ref([]);
+                const roomsLoading = ref(false);
+                const roomsLoaded = ref(false);
+
+                const modules = ref([]);
+                const modulesTotal = ref(0);
+                const modulesQuery = ref('');
+                const modulesLimit = ref(20);
+                const modulesOffset = ref(0);
+                const modulesLoading = ref(false);
+                const modulesLoaded = ref(false);
+
+                const audit = ref([]);
+                const auditTotal = ref(0);
+                const auditLimit = ref(20);
+                const auditOffset = ref(0);
+                const auditLoading = ref(false);
+                const auditLoaded = ref(false);
+
+                const formatTime = (value) => {
+                    if (value === null || value === undefined || value === '') return '-';
+                    let ms;
+                    if (typeof value === 'number') {
+                        ms = value * 1000;
+                    } else if (/^\d+$/.test(String(value))) {
+                        ms = Number(value) * 1000;
+                    } else {
+                        ms = Date.parse(value);
+                    }
+                    if (!Number.isFinite(ms)) return '-';
+                    const d = new Date(ms);
+                    if (isNaN(d.getTime())) return '-';
+                    return d.toLocaleString('zh-CN', { hour12: false });
+                };
+
+                const shortId = (id) => {
+                    if (!id) return '-';
+                    const s = String(id);
+                    return s.length > 12 ? `${s.slice(0, 8)}…` : s;
+                };
+
+                const apiRequest = async (base, action, { method = 'GET', body = null, query = {}, auth = true } = {}) => {
+                    const params = new URLSearchParams({ action });
+                    Object.entries(query).forEach(([key, value]) => {
+                        if (value !== undefined && value !== null && value !== '') params.set(key, value);
+                    });
+                    const headers = {};
+                    if (auth && token.value) headers.Authorization = `Bearer ${token.value}`;
+                    const options = { method, headers };
+                    if (body !== null) {
+                        options.headers['Content-Type'] = 'application/json';
+                        options.body = JSON.stringify(body);
+                    }
+                    const res = await fetch(`${base}?${params.toString()}`, options);
+                    let data = {};
+                    try { data = await res.json(); } catch (e) { data = {}; }
+                    return { ok: res.ok, status: res.status, data };
+                };
+
+                const adminRequest = async (action, opts = {}) => {
+                    const { ok, status, data } = await apiRequest(ADMIN_BASE, action, opts);
+                    if (status === 401 || status === 403) {
+                        const err = new Error(data.message || (status === 403 ? '无管理员权限' : '登录已失效，请重新登录'));
+                        err.status = status;
+                        err.forbidden = true;
+                        throw err;
+                    }
+                    if (!ok || data.status === 'error') {
+                        throw new Error(data.message || `请求失败（HTTP ${status}）`);
+                    }
+                    return data;
+                };
+
+                const handleAuthFailure = (e) => {
+                    showToast(e.message || '请求失败', 'error');
+                    if (e && e.forbidden && e.status === 401) {
+                        token.value = '';
+                        authed.value = false;
+                        try { localStorage.removeItem(TOKEN_KEY); } catch (err) {}
+                    }
+                };
+
+                const applyStats = (s) => {
+                    if (!s) return;
+                    stats.users = Number(s.users ?? 0);
+                    stats.banned_users = Number(s.banned_users ?? 0);
+                    stats.rooms_active = Number(s.rooms_active ?? 0);
+                    stats.rooms_public = Number(s.rooms_public ?? 0);
+                    stats.modules = Number(s.modules ?? 0);
+                    stats.audits = Number(s.audits ?? 0);
+                };
+
+                const loadOverview = async () => {
+                    overviewLoading.value = true;
+                    try {
+                        const data = await adminRequest('overview');
+                        applyStats(data.stats);
+                        forbidden.value = false;
+                        authed.value = true;
+                        authError.value = '';
+                    } catch (e) {
+                        authed.value = false;
+                        if (e && e.forbidden) {
+                            if (e.status === 403) {
+                                forbidden.value = true;
+                                authError.value = '';
+                            } else {
+                                forbidden.value = false;
+                                token.value = '';
+                                try { localStorage.removeItem(TOKEN_KEY); } catch (err) {}
+                                authError.value = e.message || '登录已失效，请重新登录';
+                            }
+                        } else {
+                            forbidden.value = false;
+                            authError.value = e.message || '无法连接服务器';
+                        }
+                    } finally {
+                        overviewLoading.value = false;
+                    }
+                };
+
+                const handleLogin = async () => {
+                    if (loggingIn.value) return;
+                    if (!loginForm.email || !loginForm.password) {
+                        authError.value = '请输入邮箱与密码';
+                        return;
+                    }
+                    loggingIn.value = true;
+                    authError.value = '';
+                    forbidden.value = false;
+                    try {
+                        const { ok, status, data } = await apiRequest(AUTH_BASE, 'login', {
+                            method: 'POST',
+                            body: { email: loginForm.email, password: loginForm.password },
+                            auth: false
+                        });
+                        if (!ok || data.status !== 'success' || !data.auth_token) {
+                            authError.value = data.message || `登录失败（HTTP ${status}）`;
+                            return;
+                        }
+                        token.value = data.auth_token;
+                        try {
+                            localStorage.setItem(TOKEN_KEY, token.value);
+                            localStorage.setItem('coc_remembered_email', loginForm.email);
+                        } catch (err) {}
+                        loginForm.password = '';
+                        await loadOverview();
+                        if (authed.value) {
+                            showToast('登录成功', 'success');
+                            await loadTab(tab.value);
+                        } else if (forbidden.value) {
+                            showToast('该账号无管理员权限', 'error');
+                        }
+                    } catch (e) {
+                        authError.value = e.message || '服务器通讯中断，请稍后重试';
+                    } finally {
+                        loggingIn.value = false;
+                    }
+                };
+
+                const logout = () => {
+                    if (!window.confirm('确定要退出管理后台吗？')) return;
+                    token.value = '';
+                    authed.value = false;
+                    forbidden.value = false;
+                    authError.value = '';
+                    try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+                    usersLoaded.value = false;
+                    roomsLoaded.value = false;
+                    modulesLoaded.value = false;
+                    auditLoaded.value = false;
+                    showToast('已退出登录', 'info');
+                };
+
+                const loadUsers = async (force = false) => {
+                    if (usersLoaded.value && !force) return;
+                    usersLoading.value = true;
+                    try {
+                        const data = await adminRequest('users.list', {
+                            query: { q: usersQuery.value, limit: usersLimit.value, offset: usersOffset.value }
+                        });
+                        users.value = Array.isArray(data.users) ? data.users : [];
+                        usersTotal.value = Number(data.total ?? users.value.length);
+                        usersLoaded.value = true;
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    } finally {
+                        usersLoading.value = false;
+                    }
+                };
+
+                const loadRooms = async (force = false) => {
+                    if (roomsLoaded.value && !force) return;
+                    roomsLoading.value = true;
+                    try {
+                        const data = await adminRequest('rooms.list');
+                        rooms.value = Array.isArray(data.rooms) ? data.rooms : [];
+                        roomsLoaded.value = true;
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    } finally {
+                        roomsLoading.value = false;
+                    }
+                };
+
+                const loadModules = async (force = false) => {
+                    if (modulesLoaded.value && !force) return;
+                    modulesLoading.value = true;
+                    try {
+                        const data = await adminRequest('modules.list', {
+                            query: { q: modulesQuery.value, limit: modulesLimit.value, offset: modulesOffset.value }
+                        });
+                        modules.value = Array.isArray(data.modules) ? data.modules : [];
+                        modulesTotal.value = Number(data.total ?? modules.value.length);
+                        modulesLoaded.value = true;
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    } finally {
+                        modulesLoading.value = false;
+                    }
+                };
+
+                const loadAudit = async (force = false) => {
+                    if (auditLoaded.value && !force) return;
+                    auditLoading.value = true;
+                    try {
+                        const data = await adminRequest('audit.list', {
+                            query: { limit: auditLimit.value, offset: auditOffset.value }
+                        });
+                        audit.value = Array.isArray(data.entries) ? data.entries : [];
+                        auditTotal.value = Number(data.total ?? audit.value.length);
+                        auditLoaded.value = true;
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    } finally {
+                        auditLoading.value = false;
+                    }
+                };
+
+                const loadTab = async (key, force = false) => {
+                    if (key === 'overview') return loadOverview();
+                    if (key === 'users') return loadUsers(force);
+                    if (key === 'rooms') return loadRooms(force);
+                    if (key === 'modules') return loadModules(force);
+                    if (key === 'audit') return loadAudit(force);
+                };
+
+                const switchTab = (key) => {
+                    tab.value = key;
+                    loadTab(key);
+                };
+
+                const searchUsers = () => {
+                    usersOffset.value = 0;
+                    loadUsers(true);
+                };
+
+                const searchModules = () => {
+                    modulesOffset.value = 0;
+                    loadModules(true);
+                };
+
+                const changeUsersPage = (dir) => {
+                    const next = usersOffset.value + dir * usersLimit.value;
+                    if (next < 0) return;
+                    if (dir > 0 && next >= usersTotal.value) return;
+                    usersOffset.value = next;
+                    loadUsers(true);
+                };
+
+                const changeModulesPage = (dir) => {
+                    const next = modulesOffset.value + dir * modulesLimit.value;
+                    if (next < 0) return;
+                    if (dir > 0 && next >= modulesTotal.value) return;
+                    modulesOffset.value = next;
+                    loadModules(true);
+                };
+
+                const changeAuditPage = (dir) => {
+                    const next = auditOffset.value + dir * auditLimit.value;
+                    if (next < 0) return;
+                    if (dir > 0 && next >= auditTotal.value) return;
+                    auditOffset.value = next;
+                    loadAudit(true);
+                };
+
+                const toggleBan = async (u) => {
+                    const verb = u.banned ? '解封' : '封禁';
+                    if (!window.confirm(`确定要${verb}用户 ${u.email} 吗？`)) return;
+                    try {
+                        await adminRequest('user.ban', { method: 'POST', body: { user_id: u.uuid, banned: !u.banned } });
+                        showToast(`已${verb} ${u.email}`, 'success');
+                        await loadUsers(true);
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    }
+                };
+
+                const forceLogout = async (u) => {
+                    if (!window.confirm(`确定要强制下线用户 ${u.email} 吗？其所有会话将立即失效。`)) return;
+                    try {
+                        await adminRequest('user.force_logout', { method: 'POST', body: { user_id: u.uuid } });
+                        showToast(`已强制下线 ${u.email}`, 'success');
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    }
+                };
+
+                const toggleRole = async (u) => {
+                    const nextRole = u.role === 'admin' ? 'user' : 'admin';
+                    const label = nextRole === 'admin' ? '设为管理员' : '取消管理员';
+                    if (!window.confirm(`确定要${label}：${u.email} 吗？`)) return;
+                    try {
+                        await adminRequest('user.set_role', { method: 'POST', body: { user_id: u.uuid, role: nextRole } });
+                        showToast(`已${label} ${u.email}`, 'success');
+                        await loadUsers(true);
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    }
+                };
+
+                const closeRoom = async (r) => {
+                    const label = r.name || r.room_id;
+                    if (!window.confirm(`确定要关闭房间「${label}」吗？房内玩家将被断开。`)) return;
+                    try {
+                        await adminRequest('room.close', { method: 'POST', body: { room_id: r.room_id } });
+                        showToast('房间已关闭', 'success');
+                        await loadRooms(true);
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    }
+                };
+
+                const deleteModule = async (m) => {
+                    const label = m.title || m.id;
+                    if (!window.confirm(`确定要删除模组「${label}」吗？此操作不可撤销。`)) return;
+                    try {
+                        await adminRequest('module.delete', { method: 'POST', body: { id: m.id } });
+                        showToast('模组已删除', 'success');
+                        await loadModules(true);
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    }
+                };
+
+                const refreshAll = async () => {
+                    if (!authed.value) {
+                        await loadOverview();
+                        return;
+                    }
+                    await loadTab(tab.value, true);
+                    showToast('已刷新', 'success');
+                };
+
+                onMounted(async () => {
+                    if (token.value) {
+                        await loadOverview();
+                        if (authed.value) await loadTab(tab.value);
+                    }
+                });
+
+                return {
+                    token, authed, forbidden, authError, loggingIn, loginForm,
+                    toasts, tab, tabs, stats, statCards, overviewLoading,
+                    users, usersTotal, usersQuery, usersLimit, usersOffset, usersLoading,
+                    rooms, roomsLoading,
+                    modules, modulesTotal, modulesQuery, modulesLimit, modulesOffset, modulesLoading,
+                    audit, auditTotal, auditLimit, auditOffset, auditLoading,
+                    maskedToken, statusText,
+                    formatTime, shortId,
+                    handleLogin, logout, refreshAll, switchTab,
+                    searchUsers, searchModules,
+                    changeUsersPage, changeModulesPage, changeAuditPage,
+                    toggleBan, forceLogout, toggleRole, closeRoom, deleteModule
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
