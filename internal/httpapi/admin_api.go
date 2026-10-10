@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -13,6 +14,8 @@ const maxAdminBodyBytes = 64 * 1024
 const (
 	adminDefaultLimit = 50
 	adminMaxLimit     = 200
+	// adminMaxBatchIDs caps how many ids one batch mutation accepts.
+	adminMaxBatchIDs = 100
 )
 
 func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
@@ -37,6 +40,8 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.adminUserForceLogout(w, r, adminUUID)
 	case "user.set_role":
 		s.adminUserSetRole(w, r, adminUUID)
+	case "user.delete":
+		s.adminUserDelete(w, r, adminUUID)
 	case "rooms.list":
 		s.adminRoomsList(w, r)
 	case "room.close":
@@ -268,6 +273,83 @@ func (s *Server) adminUserSetRole(w http.ResponseWriter, r *http.Request, adminU
 	writeJSON(w, http.StatusOK, map[string]any{"status": "success"})
 }
 
+// adminRawIDList collects the raw id strings from a batch body that may carry
+// either an array field (preferred) or a single scalar field, matching the
+// single/batch call shapes accepted by the admin UI.
+func adminRawIDList(data map[string]any, arrayKey, singleKey string) []string {
+	if arr, ok := data[arrayKey].([]any); ok {
+		out := make([]string, 0, len(arr))
+		for _, v := range arr {
+			out = append(out, asString(v))
+		}
+		return out
+	}
+	if single, ok := data[singleKey]; ok {
+		return []string{asString(single)}
+	}
+	return nil
+}
+
+// adminValidateBatch normalizes raw ids with validateFn, skipping invalid
+// entries and duplicates, and caps the result at adminMaxBatchIDs.
+func adminValidateBatch(raw []string, validateFn func(string) (string, bool)) []string {
+	seen := make(map[string]struct{}, len(raw))
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		id, ok := validateFn(v)
+		if !ok {
+			continue
+		}
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+		if len(out) >= adminMaxBatchIDs {
+			break
+		}
+	}
+	return out
+}
+
+// truncateAuditTarget clamps an audit target to the 128-char column bound.
+func truncateAuditTarget(s string) string {
+	if len(s) > 120 {
+		return s[:120]
+	}
+	return s
+}
+
+func (s *Server) adminUserDelete(w http.ResponseWriter, r *http.Request, adminUUID string) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	data, ok := readJSONBody(w, r, maxAdminBodyBytes)
+	if !ok {
+		return
+	}
+	ids := adminValidateBatch(adminRawIDList(data, "user_ids", "user_id"), validate.UserID)
+	// An admin must never delete their own account through this endpoint.
+	filtered := ids[:0]
+	for _, id := range ids {
+		if id != adminUUID {
+			filtered = append(filtered, id)
+		}
+	}
+	if len(filtered) == 0 {
+		errorJSON(w, http.StatusBadRequest, "No valid users to delete")
+		return
+	}
+	deleted, err := s.store.DeleteUsersAdmin(r.Context(), filtered)
+	if err != nil {
+		errorJSON(w, http.StatusInternalServerError, "用户删除失败")
+		return
+	}
+	s.auditAdmin(r, adminUUID, "user.delete",
+		truncateAuditTarget(strings.Join(filtered, ",")), fmt.Sprintf("deleted %d", deleted))
+	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "deleted": deleted})
+}
+
 func (s *Server) adminRoomsList(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
@@ -302,17 +384,19 @@ func (s *Server) adminRoomClose(w http.ResponseWriter, r *http.Request, adminUUI
 	if !ok {
 		return
 	}
-	roomID, ok := validate.RoomID(asString(data["room_id"]))
-	if !ok {
-		errorJSON(w, http.StatusBadRequest, "Invalid room id")
+	roomIDs := adminValidateBatch(adminRawIDList(data, "room_ids", "room_id"), validate.RoomID)
+	if len(roomIDs) == 0 {
+		errorJSON(w, http.StatusBadRequest, "No valid rooms")
 		return
 	}
-	if err := s.store.CloseRoom(r.Context(), roomID); err != nil {
+	closed, err := s.store.CloseRoomsAdmin(r.Context(), roomIDs)
+	if err != nil {
 		errorJSON(w, http.StatusInternalServerError, "房间关闭失败")
 		return
 	}
-	s.auditAdmin(r, adminUUID, "room.close", roomID, "")
-	writeJSON(w, http.StatusOK, map[string]any{"status": "success"})
+	s.auditAdmin(r, adminUUID, "room.close",
+		truncateAuditTarget(strings.Join(roomIDs, ",")), fmt.Sprintf("closed %d", closed))
+	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "closed": closed})
 }
 
 func (s *Server) adminModulesList(w http.ResponseWriter, r *http.Request) {

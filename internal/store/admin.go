@@ -289,6 +289,94 @@ func (s *Store) DeleteModuleAdmin(ctx context.Context, id int64) (bool, error) {
 	return tag.RowsAffected() > 0, nil
 }
 
+// DeleteUsersAdmin removes the given accounts together with every row that
+// references them (friendships, requests, invites, presence, the rooms they
+// host plus those rooms' messages/presence, and their cloud data) inside a
+// single transaction. Admin audit rows and library modules are intentionally
+// preserved. It returns the number of user rows actually deleted.
+func (s *Store) DeleteUsersAdmin(ctx context.Context, uuids []string) (int64, error) {
+	if len(uuids) == 0 {
+		return 0, nil
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_friendships WHERE user_a = ANY($1) OR user_b = ANY($1)`, uuids); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_friend_requests WHERE from_uuid = ANY($1) OR to_uuid = ANY($1)`, uuids); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_friend_invites WHERE from_uuid = ANY($1) OR to_uuid = ANY($1)`, uuids); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_user_presence WHERE user_uuid = ANY($1)`, uuids); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_room_messages WHERE room_id IN (SELECT room_id FROM coc_rooms WHERE host_id = ANY($1))`, uuids); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_room_presence WHERE room_id IN (SELECT room_id FROM coc_rooms WHERE host_id = ANY($1))`, uuids); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_rooms WHERE host_id = ANY($1)`, uuids); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM user_data WHERE user_id = ANY($1)`, uuids); err != nil {
+		return 0, err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE user_uuid = ANY($1)`, uuids)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// CloseRoomsAdmin deletes the given rooms together with their messages and
+// presence rows in a single transaction, returning the number of room rows
+// removed. Unknown ids are simply not counted, so the call is idempotent.
+func (s *Store) CloseRoomsAdmin(ctx context.Context, roomIDs []string) (int64, error) {
+	if len(roomIDs) == 0 {
+		return 0, nil
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_room_messages WHERE room_id = ANY($1)`, roomIDs); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM coc_room_presence WHERE room_id = ANY($1)`, roomIDs); err != nil {
+		return 0, err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM coc_rooms WHERE room_id = ANY($1)`, roomIDs)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // InsertAudit records one admin mutation.
 func (s *Store) InsertAudit(ctx context.Context, adminUUID, action, target, detail, ip string) error {
 	_, err := s.Pool.Exec(ctx,

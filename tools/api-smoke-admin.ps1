@@ -198,6 +198,50 @@ Assert-True ($audit.Status -eq 200 -and $audit.Body.total -ge 1) 'audit.list ret
 $actions = @($audit.Body.entries | ForEach-Object { $_.action })
 Assert-True (($actions -contains 'user.ban') -or ($actions -contains 'user.force_logout') -or ($actions -contains 'user.set_role') -or ($actions -contains 'room.close') -or ($actions -contains 'module.delete')) 'audit.list includes a recent admin mutation'
 
+Write-Host "[batch delete/close]" -ForegroundColor Yellow
+$emailD1 = "admin-d1+$([guid]::NewGuid().ToString('N').Substring(0,8))@example.com"
+$emailD2 = "admin-d2+$([guid]::NewGuid().ToString('N').Substring(0,8))@example.com"
+$regD1 = Invoke-Api -Method POST -Path 'db_api.php' -Query @{ action = 'register' } -Body @{ email = $emailD1; password = $Password }
+$regD2 = Invoke-Api -Method POST -Path 'db_api.php' -Query @{ action = 'register' } -Body @{ email = $emailD2; password = $Password }
+Assert-True ($regD1.Status -eq 200 -and $regD1.Body.user_id) 'register batch user D1 returns user_id'
+Assert-True ($regD2.Status -eq 200 -and $regD2.Body.user_id) 'register batch user D2 returns user_id'
+$uuidD1 = $regD1.Body.user_id
+$uuidD2 = $regD2.Body.user_id
+
+$listD1 = Invoke-Api -Method GET -Path 'admin_api.php' -Query @{ action = 'users.list'; q = $emailD1 } -Token $adminToken
+$listD2 = Invoke-Api -Method GET -Path 'admin_api.php' -Query @{ action = 'users.list'; q = $emailD2 } -Token $adminToken
+Assert-True (@($listD1.Body.users | Where-Object { $_.uuid -eq $uuidD1 }).Count -eq 1) 'users.list includes batch user D1'
+Assert-True (@($listD2.Body.users | Where-Object { $_.uuid -eq $uuidD2 }).Count -eq 1) 'users.list includes batch user D2'
+
+$delBatch = Invoke-Api -Method POST -Path 'admin_api.php' -Query @{ action = 'user.delete' } -Token $adminToken -Body @{ user_ids = @($uuidD1, $uuidD2) }
+Assert-True ($delBatch.Status -eq 200 -and $delBatch.Body.status -eq 'success' -and $delBatch.Body.deleted -eq 2) 'user.delete batch removes 2 users'
+
+$listD1b = Invoke-Api -Method GET -Path 'admin_api.php' -Query @{ action = 'users.list'; q = $emailD1 } -Token $adminToken
+$listD2b = Invoke-Api -Method GET -Path 'admin_api.php' -Query @{ action = 'users.list'; q = $emailD2 } -Token $adminToken
+Assert-True (@($listD1b.Body.users | Where-Object { $_.uuid -eq $uuidD1 }).Count -eq 0) 'users.list excludes deleted user D1'
+Assert-True (@($listD2b.Body.users | Where-Object { $_.uuid -eq $uuidD2 }).Count -eq 0) 'users.list excludes deleted user D2'
+
+$delSelf = Invoke-Api -Method POST -Path 'admin_api.php' -Query @{ action = 'user.delete' } -Token $adminToken -Body @{ user_id = $adminUuid }
+Assert-True ($delSelf.Status -eq 400 -and $delSelf.Body.message -eq 'No valid users to delete') 'user.delete on own account returns 400'
+
+$roomId1 = 'BT1' + ([guid]::NewGuid().ToString('N').Substring(0, 5).ToUpper())
+$roomId2 = 'BT2' + ([guid]::NewGuid().ToString('N').Substring(0, 5).ToUpper())
+$createR1 = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'create' } -Body @{ room_id = $roomId1; user_id = $adminUuid; is_public = $true }
+$createR2 = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'create' } -Body @{ room_id = $roomId2; user_id = $adminUuid; is_public = $true }
+Assert-True ($createR1.Status -eq 200 -and $createR1.Body.host_token) 'batch room R1 create returns host_token'
+Assert-True ($createR2.Status -eq 200 -and $createR2.Body.host_token) 'batch room R2 create returns host_token'
+
+$roomsBatch = Invoke-Api -Method GET -Path 'admin_api.php' -Query @{ action = 'rooms.list' } -Token $adminToken
+$batchFound = @($roomsBatch.Body.rooms | Where-Object { $_.room_id -eq $roomId1 -or $_.room_id -eq $roomId2 })
+Assert-True ($batchFound.Count -eq 2) 'rooms.list includes both batch rooms'
+
+$closeBatch = Invoke-Api -Method POST -Path 'admin_api.php' -Query @{ action = 'room.close' } -Token $adminToken -Body @{ room_ids = @($roomId1, $roomId2) }
+Assert-True ($closeBatch.Status -eq 200 -and $closeBatch.Body.status -eq 'success' -and $closeBatch.Body.closed -eq 2) 'room.close batch closes 2 rooms'
+
+$roomsBatch2 = Invoke-Api -Method GET -Path 'admin_api.php' -Query @{ action = 'rooms.list' } -Token $adminToken
+$batchFound2 = @($roomsBatch2.Body.rooms | Where-Object { $_.room_id -eq $roomId1 -or $_.room_id -eq $roomId2 })
+Assert-True ($batchFound2.Count -eq 0) 'rooms.list excludes both closed batch rooms'
+
 Write-Host "[me]" -ForegroundColor Yellow
 $meAdmin = Invoke-Api -Method GET -Path 'db_api.php' -Query @{ action = 'me' } -Token $adminToken
 Assert-True ($meAdmin.Status -eq 200 -and $meAdmin.Body.role -eq 'admin' -and $meAdmin.Body.user_id) 'me with admin token returns role=admin and user_id'

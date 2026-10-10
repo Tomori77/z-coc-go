@@ -138,6 +138,10 @@
                         <input v-model.trim="usersQuery" @keyup.enter="searchUsers" placeholder="搜索邮箱或 UUID…"
                                class="w-full md:w-72 bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-sm text-slate-300 outline-none focus:border-purple-500 transition-colors">
                         <button @click="searchUsers" class="px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-sm text-slate-300 hover:text-white transition-colors">搜索</button>
+                        <button v-if="selectedUsers.length" @click="batchDeleteUsers" :disabled="usersBusy"
+                                class="px-4 py-2 bg-red-900/30 border border-red-500/30 rounded-lg text-sm text-red-400 hover:bg-red-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            {{ usersBusy ? '删除中…' : `批量删除 (${selectedUsers.length})` }}
+                        </button>
                         <span class="text-xs text-slate-500 ml-auto">共 {{ usersTotal }} 位用户</span>
                     </div>
                     <div v-if="usersLoading" class="text-center py-16 text-purple-400 animate-pulse">正在加载用户…</div>
@@ -145,6 +149,9 @@
                         <table class="w-full text-xs text-left whitespace-nowrap">
                             <thead class="bg-dark-900 text-slate-500 uppercase tracking-wider">
                                 <tr>
+                                    <th class="px-3 py-2 font-medium w-8">
+                                        <input type="checkbox" class="accent-purple-500 cursor-pointer" :checked="allUsersSelected" @change="toggleAllUsers" :disabled="users.length === 0">
+                                    </th>
                                     <th class="px-3 py-2 font-medium">邮箱</th>
                                     <th class="px-3 py-2 font-medium">UUID</th>
                                     <th class="px-3 py-2 font-medium">角色</th>
@@ -155,6 +162,9 @@
                             </thead>
                             <tbody class="divide-y divide-dark-800">
                                 <tr v-for="u in users" :key="u.uuid" class="hover:bg-dark-800/50 transition-colors">
+                                    <td class="px-3 py-2">
+                                        <input type="checkbox" class="accent-purple-500 cursor-pointer" :checked="selectedUsers.includes(u.uuid)" @change="toggleUser(u.uuid)">
+                                    </td>
                                     <td class="px-3 py-2 text-slate-200">{{ u.email }}</td>
                                     <td class="px-3 py-2 font-mono text-slate-500" :title="u.uuid">{{ shortId(u.uuid) }}</td>
                                     <td class="px-3 py-2">
@@ -183,7 +193,7 @@
                                     </td>
                                 </tr>
                                 <tr v-if="users.length === 0">
-                                    <td colspan="6" class="px-3 py-10 text-center text-slate-600">没有匹配的用户</td>
+                                    <td colspan="7" class="px-3 py-10 text-center text-slate-600">没有匹配的用户</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -201,12 +211,19 @@
                 <div v-if="tab === 'rooms'">
                     <div class="flex items-center justify-between mb-4">
                         <span class="text-xs text-slate-500">共 {{ rooms.length }} 个进行中的房间</span>
+                        <button v-if="selectedRooms.length" @click="batchCloseRooms" :disabled="roomsBusy"
+                                class="px-4 py-2 bg-red-900/30 border border-red-500/30 rounded-lg text-sm text-red-400 hover:bg-red-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            {{ roomsBusy ? '关闭中…' : `批量关闭 (${selectedRooms.length})` }}
+                        </button>
                     </div>
                     <div v-if="roomsLoading" class="text-center py-16 text-purple-400 animate-pulse">正在加载房间…</div>
                     <div v-else class="overflow-x-auto border border-dark-800 rounded-xl">
                         <table class="w-full text-xs text-left whitespace-nowrap">
                             <thead class="bg-dark-900 text-slate-500 uppercase tracking-wider">
                                 <tr>
+                                    <th class="px-3 py-2 font-medium w-8">
+                                        <input type="checkbox" class="accent-purple-500 cursor-pointer" :checked="allRoomsSelected" @change="toggleAllRooms" :disabled="rooms.length === 0">
+                                    </th>
                                     <th class="px-3 py-2 font-medium">房间 / 模组</th>
                                     <th class="px-3 py-2 font-medium">房间号</th>
                                     <th class="px-3 py-2 font-medium">房主</th>
@@ -218,6 +235,9 @@
                             </thead>
                             <tbody class="divide-y divide-dark-800">
                                 <tr v-for="r in rooms" :key="r.room_id" class="hover:bg-dark-800/50 transition-colors">
+                                    <td class="px-3 py-2">
+                                        <input type="checkbox" class="accent-purple-500 cursor-pointer" :checked="selectedRooms.includes(r.room_id)" @change="toggleRoom(r.room_id)">
+                                    </td>
                                     <td class="px-3 py-2 text-slate-200 truncate" style="max-width: 16rem;" :title="r.name">{{ r.name || '未知模组' }}</td>
                                     <td class="px-3 py-2 font-mono text-slate-500" :title="r.room_id">{{ shortId(r.room_id) }}</td>
                                     <td class="px-3 py-2 text-slate-300">
@@ -237,7 +257,7 @@
                                     </td>
                                 </tr>
                                 <tr v-if="rooms.length === 0">
-                                    <td colspan="7" class="px-3 py-10 text-center text-slate-600">当前没有进行中的房间</td>
+                                    <td colspan="8" class="px-3 py-10 text-center text-slate-600">当前没有进行中的房间</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -414,10 +434,14 @@
                 const usersOffset = ref(0);
                 const usersLoading = ref(false);
                 const usersLoaded = ref(false);
+                const selectedUsers = ref([]);
+                const usersBusy = ref(false);
 
                 const rooms = ref([]);
                 const roomsLoading = ref(false);
                 const roomsLoaded = ref(false);
+                const selectedRooms = ref([]);
+                const roomsBusy = ref(false);
 
                 const modules = ref([]);
                 const modulesTotal = ref(0);
@@ -591,6 +615,7 @@
 
                 const loadUsers = async (force = false) => {
                     if (usersLoaded.value && !force) return;
+                    selectedUsers.value = [];
                     usersLoading.value = true;
                     try {
                         const data = await adminRequest('users.list', {
@@ -608,6 +633,7 @@
 
                 const loadRooms = async (force = false) => {
                     if (roomsLoaded.value && !force) return;
+                    selectedRooms.value = [];
                     roomsLoading.value = true;
                     try {
                         const data = await adminRequest('rooms.list');
@@ -664,6 +690,8 @@
 
                 const switchTab = (key) => {
                     tab.value = key;
+                    selectedUsers.value = [];
+                    selectedRooms.value = [];
                     loadTab(key);
                 };
 
@@ -699,6 +727,72 @@
                     if (dir > 0 && next >= auditTotal.value) return;
                     auditOffset.value = next;
                     loadAudit(true);
+                };
+
+                const allUsersSelected = computed(() =>
+                    users.value.length > 0 && selectedUsers.value.length === users.value.length
+                );
+
+                const toggleUser = (uuid) => {
+                    const idx = selectedUsers.value.indexOf(uuid);
+                    if (idx === -1) selectedUsers.value = [...selectedUsers.value, uuid];
+                    else selectedUsers.value = selectedUsers.value.filter(id => id !== uuid);
+                };
+
+                const toggleAllUsers = () => {
+                    if (allUsersSelected.value) selectedUsers.value = [];
+                    else selectedUsers.value = users.value.map(u => u.uuid);
+                };
+
+                const allRoomsSelected = computed(() =>
+                    rooms.value.length > 0 && selectedRooms.value.length === rooms.value.length
+                );
+
+                const toggleRoom = (roomId) => {
+                    const idx = selectedRooms.value.indexOf(roomId);
+                    if (idx === -1) selectedRooms.value = [...selectedRooms.value, roomId];
+                    else selectedRooms.value = selectedRooms.value.filter(id => id !== roomId);
+                };
+
+                const toggleAllRooms = () => {
+                    if (allRoomsSelected.value) selectedRooms.value = [];
+                    else selectedRooms.value = rooms.value.map(r => r.room_id);
+                };
+
+                const batchDeleteUsers = async () => {
+                    const ids = [...selectedUsers.value];
+                    if (!ids.length || usersBusy.value) return;
+                    if (!window.confirm(`确定要删除选中的 ${ids.length} 个用户吗？此操作不可撤销。`)) return;
+                    usersBusy.value = true;
+                    try {
+                        const data = await adminRequest('user.delete', { method: 'POST', body: { user_ids: ids } });
+                        const n = Number(data.deleted ?? ids.length);
+                        showToast(`已删除 ${n} 个用户`, 'success');
+                        selectedUsers.value = [];
+                        await loadUsers(true);
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    } finally {
+                        usersBusy.value = false;
+                    }
+                };
+
+                const batchCloseRooms = async () => {
+                    const ids = [...selectedRooms.value];
+                    if (!ids.length || roomsBusy.value) return;
+                    if (!window.confirm(`确定要关闭选中的 ${ids.length} 个房间吗？房内玩家将被断开。`)) return;
+                    roomsBusy.value = true;
+                    try {
+                        const data = await adminRequest('room.close', { method: 'POST', body: { room_ids: ids } });
+                        const n = Number(data.closed ?? ids.length);
+                        showToast(`已关闭 ${n} 个房间`, 'success');
+                        selectedRooms.value = [];
+                        await loadRooms(true);
+                    } catch (e) {
+                        handleAuthFailure(e);
+                    } finally {
+                        roomsBusy.value = false;
+                    }
                 };
 
                 const toggleBan = async (u) => {
@@ -783,11 +877,15 @@
                     rooms, roomsLoading,
                     modules, modulesTotal, modulesQuery, modulesLimit, modulesOffset, modulesLoading,
                     audit, auditTotal, auditLimit, auditOffset, auditLoading,
+                    selectedUsers, usersBusy, allUsersSelected,
+                    selectedRooms, roomsBusy, allRoomsSelected,
                     maskedToken, statusText,
                     formatTime, shortId,
                     handleLogin, logout, refreshAll, switchTab,
                     searchUsers, searchModules,
                     changeUsersPage, changeModulesPage, changeAuditPage,
+                    toggleUser, toggleAllUsers, batchDeleteUsers,
+                    toggleRoom, toggleAllRooms, batchCloseRooms,
                     toggleBan, forceLogout, toggleRole, closeRoom, deleteModule
                 };
             }
