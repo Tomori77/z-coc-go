@@ -398,6 +398,7 @@
                                                             <th class="px-2 py-1.5 font-medium">表情</th>
                                                             <th class="px-2 py-1.5 font-medium">名称</th>
                                                             <th class="px-2 py-1.5 font-medium">键(key)</th>
+                                                            <th class="px-2 py-1.5 font-medium">图片</th>
                                                             <th class="px-2 py-1.5 font-medium text-right">操作</th>
                                                         </tr>
                                                     </thead>
@@ -406,10 +407,11 @@
                                                             <td class="px-2 py-1.5"><input v-model="item.emoji" class="w-16 bg-dark-950 border border-dark-700 rounded px-2 py-1 text-center outline-none focus:border-purple-500"></td>
                                                             <td class="px-2 py-1.5"><input v-model="item.label" placeholder="名称" class="w-40 bg-dark-950 border border-dark-700 rounded px-2 py-1 outline-none focus:border-purple-500"></td>
                                                             <td class="px-2 py-1.5"><input v-model="item.key" placeholder="自动生成" class="w-40 bg-dark-950 border border-dark-700 rounded px-2 py-1 font-mono text-slate-400 outline-none focus:border-purple-500"></td>
+                                                            <td class="px-2 py-1.5"><div class="flex items-center gap-2"><input v-model="item.image" placeholder="/media/items/xxx.webp" class="w-48 bg-dark-950 border border-dark-700 rounded px-2 py-1 font-mono text-slate-400 outline-none focus:border-purple-500"><img v-if="item.image" :src="item.image" alt="" class="w-7 h-7 object-contain rounded border border-dark-700"></div></td>
                                                             <td class="px-2 py-1.5 text-right"><button @click="removeItemDef(idx)" class="px-2 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-900/30 text-[11px] transition-colors">删除</button></td>
                                                         </tr>
                                                         <tr v-if="settingsDefsEdit.length === 0">
-                                                            <td colspan="4" class="px-2 py-6 text-center text-slate-600">暂无道具，点击下方新增</td>
+                                                            <td colspan="5" class="px-2 py-6 text-center text-slate-600">暂无道具，点击下方新增</td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
@@ -606,7 +608,8 @@
                     settingsDefsEdit.value = defs.map(d => ({
                         emoji: d && d.emoji != null ? String(d.emoji) : '',
                         label: d && d.label != null ? String(d.label) : '',
-                        key: d && d.key != null ? String(d.key) : ''
+                        key: d && d.key != null ? String(d.key) : '',
+                        image: d && d.image != null ? String(d.image) : ''
                     }));
 
                     const jsonText = {};
@@ -638,7 +641,7 @@
                 const reloadSettings = () => loadSettings(true);
 
                 const addItemDef = () => {
-                    settingsDefsEdit.value.push({ emoji: '', label: '', key: '' });
+                    settingsDefsEdit.value.push({ emoji: '', label: '', key: '', image: '' });
                 };
 
                 const removeItemDef = (idx) => {
@@ -671,7 +674,8 @@
 
                     const defs = settingsDefsEdit.value.map((d, idx) => {
                         const key = String(d.key || '').trim() || genItemKey(d.label, idx);
-                        return { emoji: d.emoji, label: d.label, key };
+                        const image = String(d.image != null ? d.image : '').trim();
+                        return { emoji: d.emoji, label: d.label, key, image };
                     });
                     settingsDefsEdit.value = defs.map(d => ({ ...d }));
                     payload['items.defs'] = defs;

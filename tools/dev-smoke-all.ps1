@@ -36,6 +36,15 @@ $env:HTTP_PROXY = $null; $env:HTTPS_PROXY = $null; $env:ALL_PROXY = $null
 # the shared IP:scope buckets (register/login share the "auth" bucket).
 $env:RATE_LIMIT_DISABLED = '1'
 
+# Media mount: serve files from a temp MEDIA_DIR so the /media/ route can be
+# smoke-tested without touching the repo's ./media directory.
+$mediaDir = Join-Path $tmp 'zcoc-media'
+if (Test-Path -LiteralPath $mediaDir) { Remove-Item -LiteralPath $mediaDir -Recurse -Force }
+New-Item -ItemType Directory -Path (Join-Path $mediaDir 'items') -Force | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $mediaDir 'items\ping.txt'), 'pong')
+[System.IO.File]::WriteAllText((Join-Path $mediaDir 'items\ping.json'), 'pong')
+$env:MEDIA_DIR = $mediaDir
+
 # Reap any instance left from a previous run so the port is free.
 if (Test-Path $pidFile) {
     $old = Get-Content $pidFile -ErrorAction SilentlyContinue
@@ -75,6 +84,30 @@ try {
         throw "server did not become healthy at $url"
     }
     Write-Host '[health] ok' -ForegroundColor Green
+
+    # --- media mount check ------------------------------------------------
+    # MEDIA_DIR is set above; the allowlisted probe must serve, while a
+    # non-allowlisted type and traversal attempts must be blocked.
+    $mediaOk = $true
+    $mediaOut = curl.exe --noproxy '*' -s -o - -w "`n%{http_code}" "$url/media/items/ping.json" 2>$null
+    $mediaStatus = @($mediaOut)[-1]
+    $mediaBody = (@($mediaOut)[0..([Math]::Max(0, @($mediaOut).Length - 2))] -join "`n").Trim()
+    if ($mediaStatus -eq '200' -and $mediaBody -eq 'pong') {
+        Write-Host '[media] GET /media/items/ping.json -> 200 pong (PASS)' -ForegroundColor Green
+    } else {
+        Write-Host "[media] GET /media/items/ping.json -> $mediaStatus (FAIL)" -ForegroundColor Red
+        $mediaOk = $false
+    }
+    foreach ($blocked in @('/media/items/ping.txt', '/media/items/../secret', '/media/../etc/passwd')) {
+        $code = curl.exe --noproxy '*' --path-as-is -s -o NUL -w "%{http_code}" "$url$blocked" 2>$null
+        if ($code -ne '200') {
+            Write-Host "[media] GET $blocked -> $code (PASS: blocked)" -ForegroundColor Green
+        } else {
+            Write-Host "[media] GET $blocked -> $code (FAIL: expected non-200)" -ForegroundColor Red
+            $mediaOk = $false
+        }
+    }
+    if (-not $mediaOk) { throw 'media smoke check failed' }
 
     $suites = @(
         @{ name = 'base';    file = 'api-smoke.ps1' },

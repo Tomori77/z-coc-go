@@ -36,6 +36,11 @@ type Config struct {
 	AdminEmails    []string
 	Port           string
 
+	// MediaDir is the host-mounted directory served under /media/ for
+	// uploaded item/media files (env MEDIA_DIR). Empty disables the feature
+	// and /media/ responses 404.
+	MediaDir string
+
 	MaxSyncBytes    int64
 	MaxContentBytes int64
 	RoomTTLHours    int
@@ -189,6 +194,8 @@ func Load() *Config {
 		MaxRoomMessages: DefaultMaxRoomMessages,
 		PollLimit:       DefaultPollLimit,
 		ListLimit:       DefaultListLimit,
+
+		MediaDir: strings.TrimSpace(os.Getenv("MEDIA_DIR")),
 
 		RateLimitDisabled: isTruthyEnv(os.Getenv("RATE_LIMIT_DISABLED")),
 		TrustProxyHeaders: isTruthyEnv(os.Getenv("TRUST_PROXY_HEADERS")),

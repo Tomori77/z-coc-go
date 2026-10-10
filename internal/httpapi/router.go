@@ -78,6 +78,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/room_ws", roomWS)
 	mux.HandleFunc("/ws/room", roomWS)
 
+	// 挂载媒体目录（MEDIA_DIR）：必须在静态 catch-all 之前注册才能生效；
+	// MEDIA_DIR 为空时处理器自身返回 404（功能关闭）。
+	media := s.wrap(s.handleMedia)
+	mux.HandleFunc("/media/", media)
+
 	// Static frontend catch-all: registered last so the specific API patterns
 	// above always win. It also owns the SPA fallback and .php 404s.
 	mux.HandleFunc("/", s.wrap(s.handleStatic))

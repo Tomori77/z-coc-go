@@ -14,6 +14,8 @@ services:
       - zcoc-net
     ports:
       - "${APP_PORT:-8080}:8080"
+    volumes:
+      - ./media:/media:ro
     environment:
       PGSQL_HOST: ${PGSQL_HOST:?请在 .env 指定已有 PostgreSQL 容器名}
       PGSQL_PORT: ${PGSQL_PORT:-5432}
@@ -23,6 +25,7 @@ services:
       APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-}
+      MEDIA_DIR: ${MEDIA_DIR:-/media}
 networks:
   zcoc-net:
     external: true

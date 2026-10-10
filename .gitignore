@@ -18,6 +18,9 @@ tmp/
 assets/art/**/*.png
 assets/art/**/*.tif
 
+# Host-mounted media directory (uploaded item/media files)
+/media/
+
 # Local development docs (kept locally, not published to the repository)
 /AGENTS.md
 /docs/GO_BACKEND_PLAN.md
