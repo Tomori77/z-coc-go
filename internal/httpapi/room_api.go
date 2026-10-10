@@ -3,7 +3,9 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Tomori77/z-coc/internal/auth"
 	"github.com/Tomori77/z-coc/internal/roommsg"
@@ -24,6 +26,8 @@ func (s *Server) handleRoomAPI(w http.ResponseWriter, r *http.Request) {
 		s.roomPull(w, r)
 	case "set_public":
 		s.roomSetPublic(w, r)
+	case "set_name":
+		s.roomSetName(w, r)
 	case "list_public":
 		s.roomListPublic(w, r)
 	default:
@@ -295,6 +299,56 @@ func (s *Server) roomSetPublic(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": "success"})
 }
 
+func (s *Server) roomSetName(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	if !s.rateLimit(w, r, "room_set_name", 60, 300) {
+		return
+	}
+	data, ok := readJSONBody(w, r, maxRoomSmallBodyBytes)
+	if !ok {
+		return
+	}
+	roomID, ok := validate.RoomID(asString(data["room_id"]))
+	if !ok {
+		errorJSON(w, http.StatusBadRequest, "Invalid room id")
+		return
+	}
+	userID, ok := validate.SenderID(asString(data["user_id"]))
+	if !ok {
+		errorJSON(w, http.StatusBadRequest, "Invalid sender")
+		return
+	}
+	name := strings.TrimSpace(asString(data["name"]))
+	if utf8.RuneCountInString(name) > 120 {
+		errorJSON(w, http.StatusBadRequest, "Room name too long")
+		return
+	}
+	room, err := s.store.GetActiveRoom(r.Context(), roomID, s.cfg.RoomTTLHours)
+	if err != nil {
+		errorJSON(w, http.StatusInternalServerError, "Room not found or expired")
+		return
+	}
+	if room == nil {
+		errorJSON(w, http.StatusNotFound, "Room not found or expired")
+		return
+	}
+	if userID != room.HostID || room.HostTokenHash == nil || auth.Sha256Hex(asString(data["host_token"])) != *room.HostTokenHash {
+		writeJSON(w, http.StatusForbidden, map[string]any{
+			"status":  "error",
+			"code":    "HOST_AUTH_FAILED",
+			"message": "Only host can rename the room",
+		})
+		return
+	}
+	if err := s.store.SetRoomName(r.Context(), roomID, name); err != nil {
+		errorJSON(w, http.StatusInternalServerError, "Room rename failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "success"})
+}
+
 func (s *Server) roomListPublic(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
@@ -309,12 +363,24 @@ func (s *Server) roomListPublic(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(rooms))
 	for _, room := range rooms {
+		members := make([]map[string]any, 0, len(room.Members))
+		for _, m := range room.Members {
+			members = append(members, map[string]any{
+				"user_id": m.UUID,
+				"name":    m.Name,
+				"avatar":  m.Avatar,
+				"is_host": m.IsHost,
+			})
+		}
 		out = append(out, map[string]any{
 			"room_id":      room.RoomID,
 			"host_id":      room.HostID,
 			"host_name":    room.HostName,
 			"host_avatar":  room.HostAvatar,
 			"member_count": room.MemberCount,
+			"module_name":  room.ModuleName,
+			"name":         room.Name,
+			"members":      members,
 			"created_at":   room.CreatedAt,
 			"updated_at":   room.UpdatedAt,
 		})

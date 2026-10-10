@@ -2060,6 +2060,11 @@
                     <svg class="w-5 h-5 mr-3 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
                     <span class="relative z-10">聆听低语</span>
                 </button>
+                <button @click="currentView = 'multiplayer'; showMobileMenu = false" :class="['z-sidebar-tab w-full flex items-center px-4 py-3.5 rounded-lg transition-all duration-300 font-bold tracking-wide border group relative overflow-hidden', currentView === 'multiplayer' ? 'z-active bg-mystic-green/10 border-mystic-green/40 text-mystic-green shadow-glow-green' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-800 hover:border-dark-700']">
+                    <div class="absolute inset-0 bg-gradient-to-r from-mystic-green/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <svg class="w-5 h-5 mr-3 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 5.303a3.75 3.75 0 000-5.303m-7.425 7.425a6 6 0 010-8.485m9.546 0a6 6 0 010 8.485M12 12h.01"></path></svg>
+                    <span class="relative z-10">联机大厅</span>
+                </button>
                 <button @click="if(cocState.gameState !== 'playing') { currentView = 'coc'; showMobileMenu = false; }" :class="['z-sidebar-tab w-full flex items-center px-4 py-3.5 rounded-lg transition-all duration-300 font-bold tracking-wide border group relative overflow-hidden', currentView === 'coc' ? 'z-active bg-mystic-gold/10 border-mystic-gold/40 text-mystic-gold shadow-glow-gold' : (cocState.gameState === 'playing' ? 'opacity-50 cursor-not-allowed text-slate-600 border-transparent' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-800 hover:border-dark-700')]">
                     <div class="absolute inset-0 bg-gradient-to-r from-mystic-gold/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <svg class="w-5 h-5 mr-3 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -2770,18 +2775,25 @@
                             <h3 class="text-sm font-bold text-slate-300 font-serif tracking-widest flex items-center"><span class="w-1 h-4 bg-mystic-green mr-2"></span>公开房间</h3>
                             <button @click="refreshLobby()" :disabled="lobbyLoading" class="text-[11px] text-slate-500 hover:text-mystic-green transition-colors disabled:opacity-50" title="刷新列表">{{ lobbyLoading ? '刷新中...' : '刷新' }}</button>
                         </div>
-                        <div v-if="publicRooms.length" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                            <div v-for="room in publicRooms" :key="room.room_id" class="flex items-center gap-3 p-2.5 bg-dark-800/60 border border-dark-700 rounded-lg hover:border-mystic-green/40 transition-colors">
-                                <img v-if="room.host_avatar" :src="room.host_avatar" class="w-8 h-8 rounded-full object-cover shrink-0 border border-dark-600" alt="">
-                                <div v-else class="w-8 h-8 rounded-full bg-dark-900 border border-dark-600 flex items-center justify-center text-slate-500 text-xs shrink-0">?</div>
-                                <div class="min-w-0 flex-1">
-                                    <div class="text-sm text-slate-300 truncate">{{ room.host_name || room.host_id }}</div>
-                                    <div class="flex items-center gap-2 text-[11px] text-slate-500">
-                                        <span class="font-mono tracking-wider">{{ room.room_id }}</span>
-                                        <span>{{ room.member_count || 0 }} 人</span>
+                        <div v-if="publicRooms.length" class="space-y-3 max-h-72 overflow-y-auto pr-1">
+                            <div v-for="room in publicRooms" :key="room.room_id" class="p-3 bg-dark-800/60 border border-dark-700 rounded-lg hover:border-mystic-green/40 transition-colors">
+                                <div class="flex items-start gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-sm font-bold text-slate-200 truncate">{{ room.name || room.module_name || '未选择剧本' }}</div>
+                                        <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                                            <span class="truncate">{{ room.host_name || room.host_id }}</span>
+                                            <span class="font-mono tracking-wider shrink-0">{{ room.room_id }}</span>
+                                        </div>
                                     </div>
+                                    <button @click="joinPublicRoom(room)" class="shrink-0 px-3 py-1.5 bg-dark-800 text-mystic-green border border-mystic-green/30 rounded text-xs font-bold hover:bg-mystic-green hover:text-dark-950 transition-all">加入</button>
                                 </div>
-                                <button @click="joinPublicRoom(room)" class="shrink-0 px-3 py-1.5 bg-dark-800 text-mystic-green border border-mystic-green/30 rounded text-xs font-bold hover:bg-mystic-green hover:text-dark-950 transition-all">加入</button>
+                                <div class="flex items-center gap-1.5 mt-2.5">
+                                    <template v-for="m in (room.members || [])" :key="m.user_id">
+                                        <img v-if="m.avatar" :src="m.avatar" :title="m.name" alt="" class="w-6 h-6 rounded-full object-cover border border-dark-600 shrink-0">
+                                        <span v-else :title="m.name" class="w-6 h-6 rounded-full bg-dark-900 border border-dark-600 flex items-center justify-center text-slate-400 text-[10px] shrink-0">{{ (m.name || '?').charAt(0) }}</span>
+                                    </template>
+                                    <span v-if="room.member_count > (room.members ? room.members.length : 0)" class="h-6 px-1.5 rounded-full bg-dark-900 border border-dark-600 flex items-center justify-center text-slate-400 text-[10px] shrink-0">+{{ room.member_count - (room.members ? room.members.length : 0) }}</span>
+                                </div>
                             </div>
                         </div>
                         <div v-else class="text-center py-6 text-slate-600 text-xs italic border border-dark-800 border-dashed rounded">暂无公开房间</div>
@@ -2806,6 +2818,7 @@
                         <span class="text-lg font-mono font-bold text-mystic-green tracking-widest">{{ multiplayerState.roomId }}</span>
                         <svg class="w-4 h-4 text-slate-500 group-hover:text-mystic-green transition-colors ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
                     </div>
+                    <button v-if="multiplayerState.isHost && multiplayerState.inRoom" @click="renameRoom()" class="ml-2 px-2.5 py-2 rounded-lg border bg-dark-800/80 border-dark-700 text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-all" title="修改房间名"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
                     <button v-if="cocState.mode === 'multi' && multiplayerState.inRoom && multiplayerState.isHost" @click="toggleRoomPublic()" class="ml-2 px-3 py-2 rounded-lg border text-xs font-bold transition-all" :class="roomIsPublic ? 'bg-mystic-green/10 border-mystic-green/40 text-mystic-green hover:bg-mystic-green hover:text-dark-950' : 'bg-dark-800/80 border-dark-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'">{{ roomIsPublic ? '已公开 · 取消公开' : '公开到大厅' }}</button>
                 </div>
 
@@ -5798,7 +5811,7 @@
                 const handleInput = (e) => { const val = e.target.value; const cursor = e.target.selectionStart; const lastAt = val.lastIndexOf('@', cursor - 1); if (lastAt !== -1 && (lastAt === 0 || val[lastAt - 1] === ' ' || val[lastAt - 1] === '\n')) { const query = val.substring(lastAt + 1, cursor); if (!query.includes(' ')) { mentionQuery.value = query; showMentionList.value = true; return; } } showMentionList.value = false; };
                 const selectMention = (candidate) => { const val = cocInput.value; const cursor = cocInputRef.value.selectionStart; const lastAt = val.lastIndexOf('@', cursor - 1); if (lastAt !== -1) { const before = val.substring(0, lastAt); const after = val.substring(cursor); cocInput.value = `${before}@${candidate.name} ${after}`; showMentionList.value = false; nextTick(() => { cocInputRef.value.focus(); const newCursorPos = lastAt + 1 + candidate.name.length + 1; cocInputRef.value.setSelectionRange(newCursorPos, newCursorPos); }); } };
 
-                const multiplayerState = reactive({ isConnected: false, inRoom: false, roomId: null, hostToken: '', myId: null, isHost: false, hostAuthorizationFailed: false, useWebSocket: true, members: [], turnStatus: {}, skipStatus: {}, isReady: false, assignments: {}, assignmentDetails: {}, turnIndex: 0, roundNumber: 0, roundActionIds: [], cotAuthorizedUsers: [], syncReceived: false, isSpectator: false, kickedMembers: [], memberMenuUserId: null });
+                const multiplayerState = reactive({ isConnected: false, inRoom: false, roomId: null, hostToken: '', myId: null, isHost: false, hostAuthorizationFailed: false, useWebSocket: true, members: [], turnStatus: {}, skipStatus: {}, isReady: false, assignments: {}, assignmentDetails: {}, turnIndex: 0, roundNumber: 0, roundActionIds: [], cotAuthorizedUsers: [], syncReceived: false, isSpectator: false, kickedMembers: [], memberMenuUserId: null, roomName: '' });
                 const hasActiveInvestigator = Vue.computed(() => cocState.activeInvestigatorIndex !== -1 && !!cocState.investigators[cocState.activeInvestigatorIndex]);
                 const activeInvestigatorName = Vue.computed(() => hasActiveInvestigator.value ? cocState.investigators[cocState.activeInvestigatorIndex].name : '');
                 const selectedRoomMember = Vue.computed(() => multiplayerState.members.find(member => member.id === selectedRoomMemberId.value) || null);
@@ -9784,6 +9797,7 @@ ${buildInvestigatorProfile(inv)}
                     multiplayerState.roomId = roomId;
                     multiplayerState.isHost = true;
                     multiplayerState.myId = user.uuid;
+                    multiplayerState.roomName = '';
                     multiplayerState.members = [{ id: user.uuid, name: user.name, avatar: user.avatar, isHost: true, isReady: true }];
                     
                     try {
@@ -9807,6 +9821,7 @@ ${buildInvestigatorProfile(inv)}
                     multiplayerState.isHost = asHost;
                     multiplayerState.myId = user.uuid;
                     multiplayerState.isSpectator = asSpectator;
+                    multiplayerState.roomName = '';
                     multiplayerState.roundActionIds = [];
                     multiplayerState.turnStatus = {};
                     multiplayerState.skipStatus = {};
@@ -9847,6 +9862,7 @@ ${buildInvestigatorProfile(inv)}
                     multiplayerState.hostToken = '';
                     multiplayerState.myId = null;
                     multiplayerState.hostAuthorizationFailed = false;
+                    multiplayerState.roomName = '';
                     multiplayerState.members = [];
                     multiplayerState.assignments = {};
                     multiplayerState.syncReceived = false;
@@ -10004,6 +10020,30 @@ ${buildInvestigatorProfile(inv)}
                         showToast('切换公开状态失败，请重试', 'error');
                     }
                 };
+                const renameRoom = async () => {
+                    if (!multiplayerState.isHost || !multiplayerState.inRoom || !multiplayerState.hostToken) {
+                        return showToast('仅房主可修改房间名', 'warning');
+                    }
+                    const input = window.prompt('房间名（留空恢复为剧本名）', multiplayerState.roomName || '');
+                    if (input === null) return;
+                    const name = (input || '').trim();
+                    try {
+                        await roomApiRequest('set_name', {
+                            room_id: multiplayerState.roomId,
+                            user_id: getRoomSessionId(),
+                            host_token: multiplayerState.hostToken,
+                            name: name
+                        });
+                        multiplayerState.roomName = name;
+                        showToast(name ? '房间名已更新' : '已恢复为剧本名', 'success');
+                        refreshLobby();
+                    } catch (e) {
+                        if (e && e.code === 'HOST_AUTH_FAILED') {
+                            return showToast('房主身份校验失败，无法修改房间名', 'error');
+                        }
+                        showToast('修改房间名失败，请重试', 'error');
+                    }
+                };
                 const addFriend = async () => {
                     if (!authState.isLoggedIn || !authState.token) return showToast('请先登录后再添加同伴', 'warning');
                     const target = String(friendInput.value || '').trim();
@@ -10113,7 +10153,7 @@ ${buildInvestigatorProfile(inv)}
                     cloudSyncState, cloudSyncStatusLabel, cloudSyncStatusClass, cloudSyncStatusDotClass, handleManualSync, resolveConflictKeepLocal, resolveConflictUseCloud, resolveConflictMerge,
                     kpRulesByCategory, editingRuleId, toggleRuleEdit, resetRule, addKpRule, deleteKpRule,
                     cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,
-                    publicRooms, lobbyLoading, createRoomPublic, roomIsPublic, joinPublicRoom, toggleRoomPublic, refreshLobby,
+                    publicRooms, lobbyLoading, createRoomPublic, roomIsPublic, joinPublicRoom, toggleRoomPublic, refreshLobby, renameRoom,
                     showMentionList, mentionCandidates, handleInput, selectMention, savedGames, savesFilter, groupedSaves, openFolders, toggleFolder, moveSaveToFolder, renameFolder, 
                     isSavesEditing, toggleSavesEditMode, moveFolder, deleteFolder, editFolderName, promptMoveToFolder, folderManagementState, closeFolderModal, confirmFolderAction, 
                     deleteFolderState, openDeleteFolderModal, closeDeleteFolderModal, confirmDissolveFolder, confirmDeleteAllInFolder, isRoundLocked, hasAiTeammates, visibleSkills, hasArchiveExtras, knownInfoToArray, knownInfoDialog, kickPlayer, joinAsSpectator, moveToSpectator, restorePlayer, releaseCharacter, unkickMember, applyReportToInvestigator,

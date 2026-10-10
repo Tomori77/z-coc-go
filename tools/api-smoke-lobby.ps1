@@ -91,24 +91,58 @@ if ($health.Status -eq 0) {
     exit 1
 }
 
-Write-Host "[public room]" -ForegroundColor Yellow
+Write-Host "[public room: host offline]" -ForegroundColor Yellow
 $publicRoomId = 'LOB' + ([guid]::NewGuid().ToString('N').Substring(0, 5).ToUpper())
 $publicHostId = 'host' + [guid]::NewGuid().ToString('N').Substring(0, 6)
 
 $createPublic = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'create' } -Body @{ room_id = $publicRoomId; user_id = $publicHostId; is_public = $true }
 Assert-True ($createPublic.Status -eq 200 -and $createPublic.Body.status -eq 'success' -and $createPublic.Body.host_token) 'create PUBLIC room returns host_token'
+$publicToken = $createPublic.Body.host_token
 
-$listPublic = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
-Assert-True ($listPublic.Status -eq 200 -and $listPublic.Body.status -eq 'success') 'list_public succeeds'
-$publicEntry = @($listPublic.Body.rooms | Where-Object { $_.room_id -eq $publicRoomId })
-Assert-True ($publicEntry.Count -eq 1) 'list_public includes the public room'
+$listOffline = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
+$offlineEntry = @($listOffline.Body.rooms | Where-Object { $_.room_id -eq $publicRoomId })
+Assert-True ($listOffline.Status -eq 200 -and $offlineEntry.Count -eq 0) 'list_public hides the room while the host is offline'
 
-$entry = $publicEntry[0]
-$memberCountNumeric = $false
-if ($null -ne $entry.member_count) {
-    $memberCountNumeric = ($entry.member_count -is [int]) -or ($entry.member_count -is [long])
-}
-Assert-True ($entry.host_id -eq $publicHostId -and $memberCountNumeric) 'public room has host_id and numeric member_count'
+Write-Host "[public room: host online]" -ForegroundColor Yellow
+$pullHost = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'pull'; room_id = $publicRoomId; user_id = $publicHostId }
+Assert-True ($pullHost.Status -eq 200 -and $pullHost.Body.status -eq 'success') 'host pull registers presence (200)'
+
+$listOnline = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
+$onlineEntry = @($listOnline.Body.rooms | Where-Object { $_.room_id -eq $publicRoomId })
+Assert-True ($onlineEntry.Count -eq 1) 'list_public includes the room once the host is online'
+$entry = $onlineEntry[0]
+Assert-True ($entry.PSObject.Properties.Name -contains 'module_name') 'lobby entry exposes a module_name field'
+Assert-True ($entry.PSObject.Properties.Name -contains 'members') 'lobby entry exposes a members array'
+$hostMember = @($entry.members | Where-Object { $_.user_id -eq $publicHostId -and $_.is_host -eq $true })
+Assert-True ($hostMember.Count -eq 1 -and $entry.member_count -ge 1) 'members contains the online host (is_host=true) with member_count >= 1'
+
+Write-Host "[module name]" -ForegroundColor Yellow
+$pushSync = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'push' } -Body @{ room_id = $publicRoomId; sender_id = $publicHostId; host_token = $publicToken; payload = @{ type = 'sync_module'; moduleName = 'SmokeLobbyModule' } }
+Assert-True ($pushSync.Status -eq 200 -and $pushSync.Body.status -eq 'success') 'host push sync_module returns 200'
+
+$listModule = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
+$moduleEntry = @($listModule.Body.rooms | Where-Object { $_.room_id -eq $publicRoomId })
+Assert-True ($moduleEntry.Count -eq 1 -and $moduleEntry[0].module_name -eq 'SmokeLobbyModule') 'list_public reports the current module_name'
+Assert-True ($moduleEntry[0].PSObject.Properties.Name -contains 'name') 'lobby entry exposes a name field'
+Assert-True ($moduleEntry[0].name -eq 'SmokeLobbyModule') 'lobby name defaults to the module name before any rename'
+
+Write-Host "[room name]" -ForegroundColor Yellow
+$setName = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'set_name' } -Body @{ room_id = $publicRoomId; user_id = $publicHostId; host_token = $publicToken; name = 'Custom Room X' }
+Assert-True ($setName.Status -eq 200 -and $setName.Body.status -eq 'success') 'host set_name with correct host_token returns 200'
+
+$listRenamed = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
+$renamedEntry = @($listRenamed.Body.rooms | Where-Object { $_.room_id -eq $publicRoomId })
+Assert-True ($renamedEntry.Count -eq 1 -and $renamedEntry[0].name -eq 'Custom Room X') 'lobby name becomes the custom name after rename'
+
+$clearName = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'set_name' } -Body @{ room_id = $publicRoomId; user_id = $publicHostId; host_token = $publicToken; name = '' }
+Assert-True ($clearName.Status -eq 200 -and $clearName.Body.status -eq 'success') 'host set_name with empty name returns 200'
+
+$listReverted = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
+$revertedEntry = @($listReverted.Body.rooms | Where-Object { $_.room_id -eq $publicRoomId })
+Assert-True ($revertedEntry.Count -eq 1 -and $revertedEntry[0].name -eq 'SmokeLobbyModule') 'lobby name reverts to the module name after clearing'
+
+$setNameBad = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'set_name' } -Body @{ room_id = $publicRoomId; user_id = $publicHostId; host_token = (New-Hex -Bytes 32); name = 'Nope' }
+Assert-True ($setNameBad.Status -eq 403 -and $setNameBad.Body.code -eq 'HOST_AUTH_FAILED') 'set_name with WRONG host_token returns 403 HOST_AUTH_FAILED'
 
 Write-Host "[private room]" -ForegroundColor Yellow
 $privateRoomId = 'LOB' + ([guid]::NewGuid().ToString('N').Substring(0, 5).ToUpper())
@@ -116,26 +150,26 @@ $privateHostId = 'host' + [guid]::NewGuid().ToString('N').Substring(0, 6)
 
 $createPrivate = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'create' } -Body @{ room_id = $privateRoomId; user_id = $privateHostId }
 Assert-True ($createPrivate.Status -eq 200 -and $createPrivate.Body.status -eq 'success' -and $createPrivate.Body.host_token) 'create PRIVATE room returns host_token'
+$privateToken = $createPrivate.Body.host_token
 
-$listPublic2 = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
-$privateEntry = @($listPublic2.Body.rooms | Where-Object { $_.room_id -eq $privateRoomId })
-Assert-True ($privateEntry.Count -eq 0) 'list_public does NOT include the private room'
+$listPrivate = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
+$privateEntry = @($listPrivate.Body.rooms | Where-Object { $_.room_id -eq $privateRoomId })
+Assert-True ($privateEntry.Count -eq 0) 'list_public never includes the private room'
 
-Write-Host "[toggle visibility]" -ForegroundColor Yellow
-$setPublic = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'set_public' } -Body @{ room_id = $privateRoomId; user_id = $privateHostId; host_token = $createPrivate.Body.host_token; is_public = $true }
-Assert-True ($setPublic.Status -eq 200 -and $setPublic.Body.status -eq 'success') 'host set_public with correct token returns 200'
+Write-Host "[promote private room]" -ForegroundColor Yellow
+$pullPrivate = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'pull'; room_id = $privateRoomId; user_id = $privateHostId }
+Assert-True ($pullPrivate.Status -eq 200) 'private host pull registers presence'
 
-$listPublic3 = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
-$privateEntry2 = @($listPublic3.Body.rooms | Where-Object { $_.room_id -eq $privateRoomId })
-Assert-True ($privateEntry2.Count -eq 1) 'list_public now includes the promoted room'
+$setPublic = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'set_public' } -Body @{ room_id = $privateRoomId; user_id = $privateHostId; host_token = $privateToken; is_public = $true }
+Assert-True ($setPublic.Status -eq 200 -and $setPublic.Body.status -eq 'success') 'host set_public with correct host_token returns 200'
 
+$listPromoted = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
+$promotedEntry = @($listPromoted.Body.rooms | Where-Object { $_.room_id -eq $privateRoomId })
+Assert-True ($promotedEntry.Count -eq 1) 'list_public now includes the promoted room'
+
+Write-Host "[auth]" -ForegroundColor Yellow
 $setPublicBad = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'set_public' } -Body @{ room_id = $privateRoomId; user_id = $privateHostId; host_token = (New-Hex -Bytes 32); is_public = $false }
 Assert-True ($setPublicBad.Status -eq 403 -and $setPublicBad.Body.code -eq 'HOST_AUTH_FAILED') 'set_public with WRONG host_token returns 403 HOST_AUTH_FAILED'
-
-Write-Host "[sanity]" -ForegroundColor Yellow
-$unknownRoomId = 'LOB' + ([guid]::NewGuid().ToString('N').Substring(0, 5).ToUpper())
-$unknownEntry = @($listPublic3.Body.rooms | Where-Object { $_.room_id -eq $unknownRoomId })
-Assert-True ($unknownEntry.Count -eq 0) 'list_public does not include an unknown room'
 
 Write-Host ""
 $color = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
