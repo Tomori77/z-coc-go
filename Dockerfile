@@ -5,7 +5,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/z-coc ./cmd/server
 
-FROM gcr.io/distroless/static-debian12
+FROM alpine:3.20
 COPY --from=build /out/z-coc /z-coc
 EXPOSE 8080
 ENTRYPOINT ["/z-coc"]
