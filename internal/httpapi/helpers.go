@@ -11,16 +11,45 @@ import (
 	"strings"
 )
 
-// clientIP extracts the remote address, truncated to 45 chars like app_client_ip().
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
+// clientIP extracts the client address, truncated to 45 chars like
+// app_client_ip(). When the server trusts proxy headers (TRUST_PROXY_HEADERS),
+// the left-most X-Forwarded-For entry (or X-Real-IP) is used so rate limits key
+// on the real client; otherwise the TCP peer (RemoteAddr) is used.
+func (s *Server) clientIP(r *http.Request) string {
+	host := ""
+	if s != nil && s.cfg != nil && s.cfg.TrustProxyHeaders {
+		host = forwardedClientIP(r)
+	}
+	if host == "" {
+		var err error
+		host, _, err = net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = r.RemoteAddr
+		}
 	}
 	if len(host) > 45 {
 		host = host[:45]
 	}
 	return host
+}
+
+// forwardedClientIP returns the real client IP from trusted proxy headers.
+// It prefers X-Real-IP (a single value the proxy overwrites with the true
+// peer, hard to forge) and falls back to the left-most X-Forwarded-For entry.
+// Returns "" when neither header is present.
+func forwardedClientIP(r *http.Request) string {
+	if xr := strings.TrimSpace(r.Header.Get("X-Real-IP")); xr != "" {
+		return xr
+	}
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if i := strings.IndexByte(xff, ','); i >= 0 {
+			xff = xff[:i]
+		}
+		if ip := strings.TrimSpace(xff); ip != "" {
+			return ip
+		}
+	}
+	return ""
 }
 
 // requireMethod enforces a single HTTP method, matching app_require_method().

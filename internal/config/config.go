@@ -48,6 +48,11 @@ type Config struct {
 	// test-only affordance (env RATE_LIMIT_DISABLED) and must stay false in
 	// production.
 	RateLimitDisabled bool
+
+	// TrustProxyHeaders makes clientIP() read the real client address from
+	// X-Forwarded-For / X-Real-IP (env TRUST_PROXY_HEADERS). Enable ONLY when a
+	// trusted reverse proxy sets those headers; otherwise they are spoofable.
+	TrustProxyHeaders bool
 }
 
 // isTruthyEnv reports whether an env value is an affirmative switch.
@@ -186,6 +191,7 @@ func Load() *Config {
 		ListLimit:       DefaultListLimit,
 
 		RateLimitDisabled: isTruthyEnv(os.Getenv("RATE_LIMIT_DISABLED")),
+		TrustProxyHeaders: isTruthyEnv(os.Getenv("TRUST_PROXY_HEADERS")),
 	}
 }
 

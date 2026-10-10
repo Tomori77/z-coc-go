@@ -9,7 +9,7 @@ import (
 
 // rateLimit consumes a fixed-window hit, writing a 429 when exceeded.
 func (s *Server) rateLimit(w http.ResponseWriter, r *http.Request, scope string, limit, windowSeconds int) bool {
-	allowed, retryAfter := s.limiter.Check(r.Context(), clientIP(r), scope, limit, windowSeconds)
+	allowed, retryAfter := s.limiter.Check(r.Context(), s.clientIP(r), scope, limit, windowSeconds)
 	if !allowed {
 		w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 		errorJSON(w, http.StatusTooManyRequests, "Too many requests")
@@ -86,7 +86,7 @@ func (s *Server) logMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			"path", r.URL.Path,
 			"action", r.URL.Query().Get("action"),
 			"status", rec.status,
-			"ip", clientIP(r),
+			"ip", s.clientIP(r),
 			"duration_ms", time.Since(start).Milliseconds(),
 		)
 	}

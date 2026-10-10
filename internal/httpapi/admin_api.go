@@ -86,7 +86,7 @@ func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request) (string, b
 
 // auditAdmin best-effort records an admin mutation; failures are logged only.
 func (s *Server) auditAdmin(r *http.Request, adminUUID, action, target, detail string) {
-	if err := s.store.InsertAudit(r.Context(), adminUUID, action, target, detail, clientIP(r)); err != nil {
+	if err := s.store.InsertAudit(r.Context(), adminUUID, action, target, detail, s.clientIP(r)); err != nil {
 		s.logger.Warn("admin audit insert failed", "error", err, "action", action)
 	}
 }
