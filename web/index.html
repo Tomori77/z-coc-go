@@ -2494,15 +2494,15 @@
                                     <section>
                                         <div class="flex items-center justify-between mb-3"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">成员</h3><span class="text-[10px] font-mono text-slate-600">{{ multiplayerState.members.length }}</span></div>
                                         <div class="z-member-grid">
-                                            <button v-for="member in multiplayerState.members.slice(0, multiplayerState.members.length > 8 ? 7 : 8)" :key="member.id" @click="selectRoomMember(member)" class="z-member-tile flex flex-col items-center gap-1 p-1.5 rounded border transition-colors" :class="selectedRoomMemberId === member.id ? 'border-mystic-gold/60 bg-mystic-gold/10' : 'border-dark-700 bg-dark-800/50 hover:border-slate-500'" :title="member.name"><div class="w-8 h-8 rounded bg-dark-900 overflow-hidden border border-dark-600"><img v-if="member.avatar" :src="member.avatar" :alt="`${member.name || '成员'}的头像`" class="w-full h-full object-cover"><span v-else class="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500">{{ (member.name || '?').charAt(0) }}</span></div><span class="w-full truncate text-[9px] text-center text-slate-500">{{ member.name }}</span></button>
+                                            <button v-for="member in multiplayerState.members.slice(0, multiplayerState.members.length > 8 ? 7 : 8)" :key="member.id" @click="onMemberTileClick(member)" class="z-member-tile flex flex-col items-center gap-1 p-1.5 rounded border transition-colors" :class="selectedRoomMemberId === member.id ? 'border-mystic-gold/60 bg-mystic-gold/10' : 'border-dark-700 bg-dark-800/50 hover:border-slate-500'" :title="member.name"><div class="w-8 h-8 rounded bg-dark-900 overflow-hidden border border-dark-600"><img v-if="member.avatar" :src="member.avatar" :alt="`${member.name || '成员'}的头像`" class="w-full h-full object-cover"><span v-else class="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500">{{ (member.name || '?').charAt(0) }}</span></div><span class="w-full truncate text-[9px] text-center text-slate-500">{{ member.name }}</span></button>
                                             <button v-if="multiplayerState.members.length > 8" @click="showAllMembers = !showAllMembers" class="z-member-tile flex flex-col items-center gap-1 p-1.5 rounded border border-dashed border-dark-600 bg-dark-900/40 hover:border-mystic-gold/50 transition-colors" title="查看全部成员"><div class="w-8 h-8 rounded bg-dark-800 flex items-center justify-center text-sm font-bold text-slate-500">…</div><span class="text-[9px] text-slate-500">更多</span></button>
                                         </div>
-                                        <div v-if="showAllMembers" class="mt-2 p-2 rounded border border-dark-700 bg-dark-950/95 shadow-xl"><div class="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto custom-scrollbar"><button v-for="member in multiplayerState.members" :key="`all-${member.id}`" @click="selectRoomMember(member); showAllMembers = false" class="z-member-tile flex flex-col items-center gap-1 p-1 rounded border border-dark-700 bg-dark-800/50 hover:border-slate-500"><div class="w-7 h-7 rounded bg-dark-900 overflow-hidden border border-dark-600"><img v-if="member.avatar" :src="member.avatar" :alt="`${member.name || '成员'}的头像`" class="w-full h-full object-cover"><span v-else class="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{{ (member.name || '?').charAt(0) }}</span></div><span class="w-full truncate text-[9px] text-center text-slate-500">{{ member.name }}</span></button></div></div>
+                                        <div v-if="showAllMembers" class="mt-2 p-2 rounded border border-dark-700 bg-dark-950/95 shadow-xl"><div class="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto custom-scrollbar"><button v-for="member in multiplayerState.members" :key="`all-${member.id}`" @click="onMemberTileClick(member); showAllMembers = false" class="z-member-tile flex flex-col items-center gap-1 p-1 rounded border border-dark-700 bg-dark-800/50 hover:border-slate-500"><div class="w-7 h-7 rounded bg-dark-900 overflow-hidden border border-dark-600"><img v-if="member.avatar" :src="member.avatar" :alt="`${member.name || '成员'}的头像`" class="w-full h-full object-cover"><span v-else class="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{{ (member.name || '?').charAt(0) }}</span></div><span class="w-full truncate text-[9px] text-center text-slate-500">{{ member.name }}</span></button></div></div>
                                     </section>
                                     <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">角色信息</h3><button @click="openCharacterDrawer" :disabled="!hasActiveInvestigator" class="w-full px-3 py-2 rounded border border-mystic-gold/30 bg-mystic-gold/5 text-mystic-gold text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed">查看详细信息</button></section>
                                     <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">故事阶段</h3><div class="px-3 py-2 rounded border border-dark-700 bg-dark-800/50 text-xs text-slate-400 truncate">{{ cocState.storyStage || '尚未记录' }}</div></section>
                                     <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">回合</h3><div class="px-3 py-2 rounded border border-dark-700 bg-dark-800/50 text-xs text-slate-400">{{ multiplayerState.roundNumber > 0 ? `第 ${multiplayerState.roundNumber} 轮` : '未开始' }}<span v-if="cocState.mode === 'multi' && multiplayerState.members[multiplayerState.turnIndex]?.name" class="text-slate-600"> / {{ multiplayerState.members[multiplayerState.turnIndex].name }}</span></div></section>
-                                    <section v-if="multiplayerState.isHost" class="border-t border-dark-800 pt-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">房主功能</h3><span class="text-[9px] font-mono text-slate-600">HOST</span></div><div class="text-[10px] text-slate-500 mb-2 truncate">选中：{{ selectedRoomMember?.name || '请先选择成员' }}</div><select v-model="selectedBindingInvestigatorIndex" :disabled="!selectedRoomMemberId" class="w-full mb-2 px-2 py-2 rounded border border-dark-700 bg-dark-800 text-[10px] text-slate-400 disabled:opacity-35"><option :value="null">选择要绑定的角色卡</option><option v-for="(inv, index) in cocState.investigators" :key="`bind-${index}`" :value="index">{{ inv.name }}{{ multiplayerState.assignments[index] ? `（已绑定）` : '' }}</option></select><div class="grid grid-cols-2 gap-2"><button @click="bindPlayerToCharacter(selectedRoomMemberId, selectedBindingInvestigatorIndex)" :disabled="!selectedRoomMemberId || selectedBindingInvestigatorIndex === null" class="col-span-2 px-2 py-2 rounded border border-mystic-green/40 text-[10px] text-mystic-green disabled:opacity-35 disabled:cursor-not-allowed">绑定玩家</button><button @click="moveToSpectator(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">移入旁观</button><button @click="restorePlayer(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">恢复玩家</button><button @click="releaseCharacter(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">释放角色</button><button @click="kickPlayer(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-red-900/40 text-[10px] text-red-400 disabled:opacity-35 disabled:cursor-not-allowed">踢出房间</button></div><button @click="forceEndRound()" class="w-full mt-2 px-2 py-2 rounded border border-mystic-gold/50 bg-mystic-gold/10 text-[10px] font-bold text-mystic-gold hover:bg-mystic-gold/20 transition-colors">结束本轮</button></section>
+                                    <section v-if="multiplayerState.isHost" class="border-t border-dark-800 pt-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">房主功能</h3><span class="text-[9px] font-mono text-slate-600">HOST</span></div><div class="text-[10px] text-slate-500 mb-2 truncate">选中：{{ selectedRoomMember?.name || '请先选择成员' }}</div><select v-model="selectedBindingInvestigatorIndex" :disabled="!selectedRoomMemberId" class="w-full mb-2 px-2 py-2 rounded border border-dark-700 bg-dark-800 text-[10px] text-slate-400 disabled:opacity-35"><option :value="null">选择要绑定的角色卡</option><option v-for="(inv, index) in cocState.investigators" :key="`bind-${index}`" :value="index">{{ inv.name }}{{ multiplayerState.assignments[index] ? `（已绑定）` : '' }}</option></select><div class="grid grid-cols-2 gap-2"><button @click="bindPlayerToCharacter(selectedRoomMemberId, selectedBindingInvestigatorIndex)" :disabled="!selectedRoomMemberId || selectedBindingInvestigatorIndex === null" class="col-span-2 px-2 py-2 rounded border border-mystic-green/40 text-[10px] text-mystic-green disabled:opacity-35 disabled:cursor-not-allowed">绑定玩家</button><button @click="moveToSpectator(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">移入旁观</button><button @click="restorePlayer(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">恢复玩家</button><button @click="releaseCharacter(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">释放角色</button><button @click="kickPlayer(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-red-900/40 text-[10px] text-red-400 disabled:opacity-35 disabled:cursor-not-allowed">踢出房间</button><button @click="viewMemberCard(selectedRoomMember)" :disabled="!selectedRoomMemberId" class="col-span-2 px-2 py-2 rounded border border-mystic-gold/30 text-[10px] text-mystic-gold disabled:opacity-35 disabled:cursor-not-allowed">查看角色卡</button></div><button @click="forceEndRound()" class="w-full mt-2 px-2 py-2 rounded border border-mystic-gold/50 bg-mystic-gold/10 text-[10px] font-bold text-mystic-gold hover:bg-mystic-gold/20 transition-colors">结束本轮</button></section>
                                 </div>
                             </aside>
                         </div>
@@ -2664,6 +2664,124 @@
                              </aside>
                         </div>
     
+                        <!-- 成员角色卡（只读） -->
+                        <div v-if="showMemberCard" class="z-character-drawer-layer">
+                            <div class="z-character-drawer-backdrop" @click="closeMemberCard"></div>
+                            <aside class="z-character-drawer" role="dialog" aria-modal="true" aria-label="成员角色卡">
+                                <div v-if="memberCardInv" class="flex flex-col min-h-0 h-full">
+                                    <header class="z-character-drawer__header flex items-center justify-between px-5 py-4 border-b border-dark-800">
+                                        <div class="min-w-0">
+                                            <div class="text-[10px] text-mystic-gold/70 uppercase tracking-[0.18em]">角色卡 · 只读</div>
+                                            <div class="font-serif font-bold text-mystic-gold truncate">{{ memberCardInv.name }}</div>
+                                            <div v-if="memberCardName" class="text-[10px] text-slate-500 truncate mt-0.5">玩家：{{ memberCardName }}</div>
+                                        </div>
+                                        <button @click="closeMemberCard" aria-label="关闭角色卡" class="p-2 text-slate-500 hover:text-mystic-gold"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                                    </header>
+                                    <div class="z-character-drawer__body p-5 space-y-6 overflow-y-auto custom-scrollbar">
+                                        <!-- 头像 & 基础信息 -->
+                                        <div class="flex items-center gap-4 pb-4 border-b border-dark-800">
+                                            <div class="w-16 h-16 rounded-xl bg-dark-800 overflow-hidden border-2 border-dark-700 shadow-[0_0_15px_rgba(0,0,0,0.5)] relative">
+                                                <img v-if="memberCardInv.avatar" :src="memberCardInv.avatar" :alt="`${memberCardInv.name || '调查员'}的头像`" class="w-full h-full object-cover">
+                                                <div v-else class="w-full h-full flex items-center justify-center text-2xl font-bold text-dark-600 font-serif">{{ (memberCardInv.name || '?').charAt(0) }}</div>
+                                                <div class="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-xl"></div>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="font-bold text-lg font-serif text-mystic-gold truncate">{{ memberCardInv.name }}</div>
+                                                <div class="text-xs text-slate-500 font-mono truncate mt-0.5">{{ memberCardInv.job }}</div>
+                                                <div class="flex flex-wrap items-center gap-2 mt-2">
+                                                    <span class="px-1.5 py-0.5 rounded bg-dark-800 border border-dark-700 text-[10px] text-slate-400 font-mono">AGE: {{ memberCardInv.age }}</span>
+                                                    <span class="px-1.5 py-0.5 rounded bg-dark-800 border border-dark-700 text-[10px] text-slate-400 font-mono">{{ memberCardInv.gender }}</span>
+                                                    <span v-if="memberCardInv.residence" class="px-1.5 py-0.5 rounded bg-dark-800 border border-dark-700 text-[10px] text-slate-400 font-mono truncate">住地: {{ memberCardInv.residence }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 状态栏 (HP/MP/SAN) -->
+                                        <div class="space-y-3">
+                                            <div>
+                                                <div class="flex justify-between text-[10px] font-bold tracking-widest mb-1">
+                                                    <span class="text-red-500/80">HP (生命)</span>
+                                                    <span class="font-mono text-red-400">{{ memberCardInv.hp }} <span class="text-slate-600">/ {{ memberCardInv.maxHp || memberCardInv.hp }}</span></span>
+                                                </div>
+                                                <div class="h-1.5 w-full bg-dark-950 rounded-full overflow-hidden border border-dark-800/50">
+                                                    <div class="h-full bg-gradient-to-r from-red-900 to-red-600 transition-all duration-500" :style="{ width: Math.min(100, (memberCardInv.hp / (memberCardInv.maxHp || memberCardInv.hp || 1)) * 100) + '%' }"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between text-[10px] font-bold tracking-widest mb-1">
+                                                    <span class="text-blue-500/80">MP (精力)</span>
+                                                    <span class="font-mono text-blue-400">{{ memberCardInv.mp }} <span class="text-slate-600">/ {{ memberCardInv.maxMp || memberCardInv.mp }}</span></span>
+                                                </div>
+                                                <div class="h-1.5 w-full bg-dark-950 rounded-full overflow-hidden border border-dark-800/50">
+                                                    <div class="h-full bg-gradient-to-r from-blue-900 to-blue-600 transition-all duration-500" :style="{ width: Math.min(100, (memberCardInv.mp / (memberCardInv.maxMp || memberCardInv.mp || 1)) * 100) + '%' }"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between text-[10px] font-bold tracking-widest mb-1">
+                                                    <span class="text-purple-500/80">SAN (理智)</span>
+                                                    <span class="font-mono text-purple-400">{{ memberCardInv.san }} <span class="text-slate-600">/ {{ memberCardInv.maxSan || 99 }}</span></span>
+                                                </div>
+                                                <div class="h-1.5 w-full bg-dark-950 rounded-full overflow-hidden border border-dark-800/50">
+                                                    <div class="h-full bg-gradient-to-r from-purple-900 to-purple-600 transition-all duration-500" :style="{ width: Math.min(100, (memberCardInv.san / (memberCardInv.maxSan || 99)) * 100) + '%' }"></div>
+                                                </div>
+                                            </div>
+                                            <div class="flex justify-between text-[10px] font-bold tracking-widest">
+                                                <span class="text-mystic-gold/80">LUCK (幸运)</span>
+                                                <span class="font-mono text-mystic-gold">{{ (memberCardInv.stats && memberCardInv.stats.LUCK !== undefined) ? memberCardInv.stats.LUCK : '—' }}</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- 状态标签 & 当前位置 -->
+                                        <div v-if="(memberCardInv.statuses && memberCardInv.statuses.length) || memberCardInv.location" class="flex flex-wrap gap-1.5 items-center pt-1">
+                                            <span v-for="tag in (memberCardInv.statuses || [])" :key="tag" class="px-2 py-0.5 rounded text-[10px] font-bold border" :class="tag.includes('重伤') ? 'bg-red-900/30 border-red-500/40 text-red-400' : tag.includes('濒死') ? 'bg-red-950/60 border-red-600/50 text-red-300' : tag.includes('疯狂') ? 'bg-purple-900/30 border-purple-500/40 text-purple-300' : tag.includes('死亡') ? 'bg-slate-800/60 border-slate-500/40 text-slate-400' : 'bg-dark-800 border-dark-600 text-slate-400'">{{ tag }}</span>
+                                            <span v-if="memberCardInv.location" class="px-2 py-0.5 rounded text-[10px] font-bold border bg-dark-900 border-mystic-gold/30 text-mystic-gold/90">📍 {{ memberCardInv.location }}</span>
+                                        </div>
+
+                                        <!-- 基础属性 -->
+                                        <div v-if="memberCardInv.stats">
+                                            <h4 class="font-bold text-slate-500 text-[10px] mb-3 uppercase tracking-widest flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-slate-500"></span> 基础属性</h4>
+                                            <div class="grid grid-cols-3 gap-2">
+                                                <div v-for="(val, key) in memberCardInv.stats" :key="key" class="bg-dark-800/50 border border-dark-700/50 rounded p-2 text-center">
+                                                    <div class="text-[9px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">{{ statDisplayMap[key] || key }}</div>
+                                                    <div class="font-bold text-sm text-slate-300 font-mono">{{ val }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 技能列表 -->
+                                        <div v-if="memberCardInv.skills && memberCardInv.skills.length">
+                                            <h4 class="font-bold text-slate-500 text-[10px] mb-3 uppercase tracking-widest flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-slate-500"></span> 技能列表</h4>
+                                            <div class="flex flex-wrap gap-2">
+                                                <div v-for="skill in visibleSkills(memberCardInv)" :key="skill.name" class="px-2.5 py-1 bg-dark-800 border border-dark-700 rounded text-xs text-slate-400 flex items-center gap-2">
+                                                    <span>{{ skill.name }}</span>
+                                                    <span class="font-mono font-bold text-slate-500">{{ skill.value }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 物品与货币 -->
+                                        <div class="space-y-2">
+                                            <h4 class="font-bold text-slate-500 text-[10px] mb-3 uppercase tracking-widest flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-slate-500"></span> 物品</h4>
+                                            <div class="flex items-center justify-between text-xs text-slate-400 bg-dark-800/40 border border-dark-700/50 rounded p-2"><span>货币</span><span class="font-mono text-mystic-gold">{{ memberCardInv.currency }}</span></div>
+                                            <div v-if="memberCardInv.items && memberCardInv.items.length" class="space-y-1">
+                                                <div v-for="item in memberCardInv.items" :key="item.name" class="flex items-center justify-between gap-2 text-[11px] text-slate-400 bg-dark-800/40 border border-dark-700/50 rounded p-2">
+                                                    <span class="truncate">{{ item.name }}<span v-if="item.description" class="text-slate-600 ml-1">{{ item.description }}</span></span>
+                                                    <span class="font-mono text-slate-300 shrink-0">x{{ item.quantity }}</span>
+                                                </div>
+                                            </div>
+                                            <div v-else class="text-[11px] text-slate-600 bg-dark-800/30 border border-dark-700/40 rounded p-2">暂无物品</div>
+                                        </div>
+
+                                        <!-- 备注 -->
+                                        <div v-if="memberCardInv.notes">
+                                            <h4 class="font-bold text-slate-500 text-[10px] mb-3 uppercase tracking-widest flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-slate-500"></span> 备注</h4>
+                                            <div class="text-[11px] text-slate-400 leading-relaxed bg-dark-800/40 border border-dark-700/50 rounded p-2 whitespace-pre-wrap">{{ memberCardInv.notes }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+
                         <!-- Input -->
                         <div class="p-2 bg-dark-900 border-t border-dark-800 z-20 relative safe-pb">
                             <!-- Mention Auto-complete List -->
@@ -4797,6 +4915,9 @@
                 const showMobileRightSidebar = ref(false);
                 const showCharacterDrawer = ref(false);
                 const showAllMembers = ref(false);
+                const showMemberCard = ref(false);
+                const memberCardInv = ref(null);
+                const memberCardName = ref('');
                 const selectedRoomMemberId = ref(null);
                 const selectedBindingInvestigatorIndex = ref(null);
                 const mobileSettingsSection = ref('menu');
@@ -5878,6 +5999,22 @@
                     showCharacterDrawer.value = true;
                 };
                 const closeCharacterDrawer = () => { showCharacterDrawer.value = false; };
+                const viewMemberCard = (member) => {
+                    if (!member) return;
+                    const idx = Object.keys(multiplayerState.assignments || {}).find(k => multiplayerState.assignments[k] === member.id);
+                    if (idx === undefined) { showToast('该玩家尚未选择角色卡', 'info'); return; }
+                    const inv = cocState.investigators[Number(idx)];
+                    if (!inv) { showToast('角色卡暂不可用', 'warning'); return; }
+                    memberCardInv.value = JSON.parse(JSON.stringify(inv));
+                    normalizeInventoryData(memberCardInv.value);
+                    memberCardName.value = member.name || '';
+                    showMemberCard.value = true;
+                };
+                const closeMemberCard = () => { showMemberCard.value = false; memberCardInv.value = null; };
+                const onMemberTileClick = (member) => {
+                    if (multiplayerState.isHost) selectRoomMember(member);
+                    else viewMemberCard(member);
+                };
                 let joinRetryInterval = null;
                 let joinRetryAttempts = 0;
                 let roomPollTimer = null;
@@ -10216,7 +10353,7 @@ ${buildInvestigatorProfile(inv)}
                 });
 
                 return {
-                    currentView, showMobileMenu, showMobileRightSidebar, showCharacterDrawer, showAllMembers, selectedRoomMemberId, selectedBindingInvestigatorIndex, hasActiveInvestigator, activeInvestigatorName, selectedRoomMember, selectRoomMember, bindPlayerToCharacter, inventoryView, openCharacterDrawer, closeCharacterDrawer, mobileSettingsSection, mobileSettingsGroups, mobileSettingsTitle, openMobileSettingsSection, backMobileSettings, user, settings, toasts, confirmState, authState, isAdmin, openAdminPanel, refreshRole, handleAuth, handleLogout, showBroadcast, dontShowBroadcast, closeBroadcast,
+                    currentView, showMobileMenu, showMobileRightSidebar, showCharacterDrawer, showAllMembers, selectedRoomMemberId, selectedBindingInvestigatorIndex, hasActiveInvestigator, activeInvestigatorName, selectedRoomMember, selectRoomMember, bindPlayerToCharacter, inventoryView, openCharacterDrawer, closeCharacterDrawer, showMemberCard, memberCardInv, memberCardName, viewMemberCard, closeMemberCard, onMemberTileClick, mobileSettingsSection, mobileSettingsGroups, mobileSettingsTitle, openMobileSettingsSection, backMobileSettings, user, settings, toasts, confirmState, authState, isAdmin, openAdminPanel, refreshRole, handleAuth, handleLogout, showBroadcast, dontShowBroadcast, closeBroadcast,
                     cloudSyncState, cloudSyncStatusLabel, cloudSyncStatusClass, cloudSyncStatusDotClass, handleManualSync, resolveConflictKeepLocal, resolveConflictUseCloud, resolveConflictMerge,
                     kpRulesByCategory, editingRuleId, toggleRuleEdit, resetRule, addKpRule, deleteKpRule,
                     cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,
