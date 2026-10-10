@@ -3150,7 +3150,7 @@
                 <div class="settings-layout max-w-7xl mx-auto">
                     <!-- User Profile -->
                     <div class="settings-card settings-profile-card glass-panel p-6 rounded-xl">
-                        <h3 class="font-bold text-slate-200 mb-6 flex items-center font-serif text-lg"><span class="w-1 h-6 bg-mystic-gold mr-3"></span> 个人信息</h3>
+                        <h3 class="font-bold text-slate-200 mb-6 flex items-center font-serif text-lg"><span class="w-1 h-6 bg-mystic-gold mr-3"></span> 个人信息<button v-if="isAdmin" @click="openAdminPanel()" class="ml-3 px-3 py-1 text-xs font-bold rounded border border-mystic-gold/50 text-mystic-gold bg-mystic-gold/10 hover:bg-mystic-gold hover:text-dark-900 transition-all uppercase tracking-wider">管理后台</button></h3>
                         <div class="settings-profile-main flex items-center gap-6 mb-6">
                             <label class="relative cursor-pointer group">
                                 <div class="settings-avatar w-20 h-20 rounded-full overflow-hidden border-2 border-dark-600 group-hover:border-mystic-gold transition-colors shadow-lg">
@@ -4836,6 +4836,7 @@
                 };
                 watch(currentView, (view) => {
                     if (view !== 'settings') mobileSettingsSection.value = 'menu';
+                    if (view === 'settings') refreshRole();
                     if (view === 'friends') { refreshFriends(); startFriendPolling(); }
                     else stopFriendPolling();
                     if (view === 'lobby') { refreshLobby(); startLobbyPolling(); }
@@ -4857,9 +4858,25 @@
                     isLoading: false,
                     isLoggedIn: false,
                     token: '',
+                    role: '',
                     error: '',
                     rememberMe: true
                 });
+
+                const isAdmin = Vue.computed(() => authState.isLoggedIn && authState.role === 'admin');
+                const openAdminPanel = () => { window.location.href = 'Admin/'; };
+                const refreshRole = async () => {
+                    if (!authState.isLoggedIn || !authState.token) return;
+                    try {
+                        const response = await fetch(window.ZCOC_RUNTIME.apiUrl('db_api.php?action=me'), {
+                            headers: { Authorization: 'Bearer ' + authState.token }
+                        });
+                        if (response.ok) {
+                            const data = await response.json().catch(() => ({}));
+                            authState.role = data.role || 'user';
+                        }
+                    } catch (e) {}
+                };
 
                 const showConfirm = (message, title = '确认操作') => { return new Promise((resolve) => { confirmState.message = message; confirmState.title = title; confirmState.show = true; confirmState.resolve = resolve; }); };
                 const user = reactive({ name: '无名调查员', avatar: '', uuid: generateUUID() });
@@ -6484,6 +6501,7 @@ const handleAuth = async () => {
             cloudSyncState.conflict = false;
             user.uuid = result.user_id;
             authState.token = result.auth_token || '';
+            authState.role = result.role || 'user';
             authState.isLoggedIn = true;
             authState.showModal = false;
             
@@ -6547,6 +6565,7 @@ const handleAuth = async () => {
                     authState.token = '';
                     localStorage.removeItem('coc_auth_token');
                     authState.isLoggedIn = false;
+                    authState.role = '';
                     user.uuid = generateUUID();
                     user.name = '无名调查员';
                     user.avatar = '';
@@ -6611,6 +6630,7 @@ const handleAuth = async () => {
                     const lRemember = localStorage.getItem('coc_remember_me');
                     if (lRemember === 'false') authState.rememberMe = false;
                     authState.token = localStorage.getItem('coc_auth_token') || '';
+                    if (authState.isLoggedIn) refreshRole();
                     const rememberedEmail = localStorage.getItem('coc_remembered_email');
                     if (rememberedEmail) authState.email = rememberedEmail;
                     
@@ -10178,7 +10198,7 @@ ${buildInvestigatorProfile(inv)}
                 });
 
                 return {
-                    currentView, showMobileMenu, showMobileRightSidebar, showCharacterDrawer, showAllMembers, selectedRoomMemberId, selectedBindingInvestigatorIndex, hasActiveInvestigator, activeInvestigatorName, selectedRoomMember, selectRoomMember, bindPlayerToCharacter, inventoryView, openCharacterDrawer, closeCharacterDrawer, mobileSettingsSection, mobileSettingsGroups, mobileSettingsTitle, openMobileSettingsSection, backMobileSettings, user, settings, toasts, confirmState, authState, handleAuth, handleLogout, showBroadcast, dontShowBroadcast, closeBroadcast,
+                    currentView, showMobileMenu, showMobileRightSidebar, showCharacterDrawer, showAllMembers, selectedRoomMemberId, selectedBindingInvestigatorIndex, hasActiveInvestigator, activeInvestigatorName, selectedRoomMember, selectRoomMember, bindPlayerToCharacter, inventoryView, openCharacterDrawer, closeCharacterDrawer, mobileSettingsSection, mobileSettingsGroups, mobileSettingsTitle, openMobileSettingsSection, backMobileSettings, user, settings, toasts, confirmState, authState, isAdmin, openAdminPanel, refreshRole, handleAuth, handleLogout, showBroadcast, dontShowBroadcast, closeBroadcast,
                     cloudSyncState, cloudSyncStatusLabel, cloudSyncStatusClass, cloudSyncStatusDotClass, handleManualSync, resolveConflictKeepLocal, resolveConflictUseCloud, resolveConflictMerge,
                     kpRulesByCategory, editingRuleId, toggleRuleEdit, resetRule, addKpRule, deleteKpRule,
                     cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,

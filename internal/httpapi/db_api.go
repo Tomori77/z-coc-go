@@ -24,6 +24,8 @@ func (s *Server) handleDBAPI(w http.ResponseWriter, r *http.Request) {
 		s.dbSync(w, r)
 	case "logout":
 		s.dbLogout(w, r)
+	case "me":
+		s.dbMe(w, r)
 	default:
 		errorJSON(w, http.StatusNotFound, "Unknown action")
 	}
@@ -128,10 +130,51 @@ func (s *Server) dbLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	role, _, err := s.store.GetUserRoleByUUID(r.Context(), userUUID)
+	if err != nil {
+		errorJSON(w, http.StatusInternalServerError, "登录暂时不可用")
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":     "success",
 		"user_id":    userUUID,
 		"auth_token": authToken,
+		"role":       role,
+	})
+}
+
+// dbMe resolves the caller's identity from the Bearer token and returns the
+// account uuid, role and ban state. It does not require a user_id parameter.
+func (s *Server) dbMe(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	if !s.rateLimit(w, r, "auth_me", 240, 300) {
+		return
+	}
+	token := auth.BearerToken(r)
+	if token == "" || len(token) > 128 {
+		errorJSON(w, http.StatusUnauthorized, "Login required")
+		return
+	}
+	uuid, role, banned, found, err := s.store.FindAuthUserByToken(r.Context(), auth.Sha256Hex(token), token)
+	if err != nil {
+		errorJSON(w, http.StatusInternalServerError, "登录校验失败")
+		return
+	}
+	if !found {
+		errorJSON(w, http.StatusUnauthorized, "Login expired")
+		return
+	}
+	if role == "" {
+		role = "user"
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":  "success",
+		"user_id": uuid,
+		"role":    role,
+		"banned":  banned,
 	})
 }
 

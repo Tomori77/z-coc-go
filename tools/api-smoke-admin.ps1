@@ -198,6 +198,20 @@ Assert-True ($audit.Status -eq 200 -and $audit.Body.total -ge 1) 'audit.list ret
 $actions = @($audit.Body.entries | ForEach-Object { $_.action })
 Assert-True (($actions -contains 'user.ban') -or ($actions -contains 'user.force_logout') -or ($actions -contains 'user.set_role') -or ($actions -contains 'room.close') -or ($actions -contains 'module.delete')) 'audit.list includes a recent admin mutation'
 
+Write-Host "[me]" -ForegroundColor Yellow
+$meAdmin = Invoke-Api -Method GET -Path 'db_api.php' -Query @{ action = 'me' } -Token $adminToken
+Assert-True ($meAdmin.Status -eq 200 -and $meAdmin.Body.role -eq 'admin' -and $meAdmin.Body.user_id) 'me with admin token returns role=admin and user_id'
+Assert-True ($meAdmin.Body.user_id -eq $adminUuid) 'me admin user_id matches the logged-in admin'
+
+# C's token was invalidated by force_logout earlier; log in again for a fresh token.
+$loginC2 = Invoke-Api -Method POST -Path 'db_api.php' -Query @{ action = 'login' } -Body @{ email = $emailC; password = $Password }
+$tokenC = $loginC2.Body.auth_token
+$meUser = Invoke-Api -Method GET -Path 'db_api.php' -Query @{ action = 'me' } -Token $tokenC
+Assert-True ($meUser.Status -eq 200 -and $meUser.Body.role -eq 'user') 'me with normal user token returns role=user'
+
+$meNoToken = Invoke-Api -Method GET -Path 'db_api.php' -Query @{ action = 'me' }
+Assert-True ($meNoToken.Status -eq 401) 'me without token returns 401'
+
 Write-Host ""
 $color = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
 Write-Host ("Result: {0} passed, {1} failed" -f $script:Pass, $script:Fail) -ForegroundColor $color

@@ -39,6 +39,23 @@ func (s *Store) FindUserByEmail(ctx context.Context, email string) (passwordHash
 	return passwordHash, userUUID, true, nil
 }
 
+// GetUserRoleByUUID returns a user's role, defaulting to "user" when the stored
+// role is empty, and whether the account exists.
+func (s *Store) GetUserRoleByUUID(ctx context.Context, userUUID string) (role string, found bool, err error) {
+	row := s.Pool.QueryRow(ctx, `SELECT role FROM users WHERE user_uuid = $1 LIMIT 1`, userUUID)
+	err = row.Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	if role == "" {
+		role = "user"
+	}
+	return role, true, nil
+}
+
 // FindUserByToken looks up a user by uuid accepting either the hashed or the
 // legacy plaintext token, matching require_user_token().
 func (s *Store) FindUserByToken(ctx context.Context, userUUID, tokenHash, token string) (id int64, storedToken string, found bool, err error) {
