@@ -2494,6 +2494,28 @@
                                 </div>
                             </div>
 
+                            <!-- 群聊历史浮窗（点击“历史”时显示，不撑高对话栏） -->
+                            <div v-if="showGroupChatHistory" class="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" @click.self="showGroupChatHistory = false">
+                                <div class="bg-dark-900 border border-mystic-gold/40 rounded-xl w-full max-w-md flex flex-col max-h-[70vh] shadow-2xl overflow-hidden">
+                                    <div class="flex items-center justify-between px-4 py-3 border-b border-dark-800">
+                                        <div class="text-sm font-bold text-mystic-gold font-serif">群聊历史（{{ activeChatCount }}）</div>
+                                        <button @click="showGroupChatHistory = false" class="p-1 text-slate-500 hover:text-mystic-gold transition-colors" aria-label="关闭">✕</button>
+                                    </div>
+                                    <div ref="groupChatScrollEl" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-3 space-y-1 text-xs">
+                                        <div v-if="activeChatList.length === 0" class="text-slate-600 italic">暂无消息</div>
+                                        <div v-for="m in activeChatList" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
+                                    </div>
+                                    <div v-if="multiplayerState.isSpectator" class="flex gap-2 p-3 border-t border-dark-800">
+                                        <input v-model="spectatorChatInput" @keydown.enter.prevent="sendSpectatorChat" placeholder="旁观者群聊..." class="flex-1 min-w-0 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
+                                        <button @click="sendSpectatorChat" class="shrink-0 px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
+                                    </div>
+                                    <div v-else class="flex gap-2 p-3 border-t border-dark-800">
+                                        <input v-model="groupChatInput" @keydown.enter.prevent="sendGroupChat" placeholder="玩家群聊..." class="flex-1 min-w-0 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
+                                        <button @click="sendGroupChat" class="shrink-0 px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- 底部输入区：主输入 2/3 + 群聊 1/3 -->
                             <div class="p-2 bg-dark-900 border-t border-dark-800 z-20 relative safe-pb flex gap-2 items-stretch">
                                 <div class="flex-1 min-w-0">
@@ -2515,7 +2537,7 @@
                                         <button v-for="(cmd, slot) in settings.commandHotkeys" :key="slot"
                                                 @pointerdown.prevent="hotkeyPressStart(slot)" @pointerup.prevent="hotkeyPressEnd(slot)" @pointercancel="hotkeyPressEnd(slot, true)" @contextmenu.prevent
                                                 :class="cmd ? 'bg-dark-800 border-dark-600 hover:border-mystic-gold/50 text-slate-300 hover:text-mystic-gold' : 'bg-dark-950/50 border-dashed border-dark-600 text-slate-600 hover:border-mystic-gold/40'"
-                                                class="flex-1 max-w-[180px] px-3 py-1.5 rounded-lg border text-xs font-mono truncate transition-all select-none" :title="cmd ? `短按追加：${cmd}（长按更换）` : '点按设置指令'">
+                                                class="flex-1 min-w-0 px-2 py-1.5 rounded-lg border text-xs font-mono truncate transition-all select-none" :title="cmd ? `短按追加：${cmd}（长按更换）` : '点按设置指令'">
                                             {{ cmd || `＋ 指令 ${slot + 1}` }}
                                         </button>
                                     </div>
@@ -2541,32 +2563,22 @@
                                 </div>
                                 <div v-if="cocState.mode === 'multi' && multiplayerState.inRoom && chatEnabled" class="w-1/3 shrink-0 min-w-0">
                                     <!-- 群聊 Dock（玩家/旁观者各自隔离，独立于 AI 对话日志） -->
-                                    <div v-if="cocState.mode === 'multi' && multiplayerState.inRoom && chatEnabled" class="h-full">
-                                        <div class="w-full h-full bg-dark-900 border border-dark-800 rounded-lg overflow-hidden">
-                                            <button @click="showGroupChat = !showGroupChat" class="w-full flex items-center justify-between px-3 py-2 text-xs text-slate-400 hover:text-mystic-gold transition-colors">
-                                                <span class="flex items-center gap-2"><span>💬 群聊</span><span class="text-slate-600 font-mono">({{ multiplayerState.isSpectator ? spectatorChat.length : groupChat.length }})</span></span>
-                                                <svg :class="showGroupChat ? 'rotate-180' : ''" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-                                            </button>
-                                            <div v-if="showGroupChat" class="border-t border-dark-800">
-                                                <div ref="groupChatScrollEl" class="max-h-40 overflow-y-auto custom-scrollbar px-3 py-2 space-y-1 text-xs">
-                                                    <template v-if="multiplayerState.isSpectator">
-                                                        <div v-if="spectatorChat.length === 0" class="text-slate-600 italic">暂无消息</div>
-                                                        <div v-for="m in spectatorChat" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
-                                                    </template>
-                                                    <template v-else>
-                                                        <div v-if="groupChat.length === 0" class="text-slate-600 italic">暂无消息</div>
-                                                        <div v-for="m in groupChat" :key="m.id" class="leading-relaxed break-words"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
-                                                    </template>
-                                                </div>
-                                                <div v-if="multiplayerState.isSpectator" class="flex gap-2 p-2 border-t border-dark-800">
-                                                    <input v-model="spectatorChatInput" @keydown.enter.prevent="sendSpectatorChat" placeholder="旁观者群聊..." class="flex-1 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
-                                                    <button @click="sendSpectatorChat" class="px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
-                                                </div>
-                                                <div v-else class="flex gap-2 p-2 border-t border-dark-800">
-                                                    <input v-model="groupChatInput" @keydown.enter.prevent="sendGroupChat" placeholder="玩家群聊..." class="flex-1 bg-dark-950 rounded-lg px-3 py-2 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
-                                                    <button @click="sendGroupChat" class="px-4 py-2 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded-lg text-xs font-bold transition-all">发送</button>
-                                                </div>
-                                            </div>
+                                    <div class="w-full h-full bg-dark-900 border border-dark-800 rounded-lg overflow-hidden flex flex-col">
+                                        <div class="flex items-center justify-between px-2 py-1 border-b border-dark-800">
+                                            <span class="flex items-center gap-1.5 text-[11px] text-slate-400"><span>💬 群聊</span><span class="text-slate-600 font-mono">({{ activeChatCount }})</span></span>
+                                            <button @click="showGroupChatHistory = true" class="text-[10px] text-slate-500 hover:text-mystic-gold transition-colors" title="查看历史消息">历史</button>
+                                        </div>
+                                        <div class="flex-1 min-h-0 px-2 py-1 space-y-0.5 text-[11px] overflow-hidden">
+                                            <div v-if="activeChatList.length === 0" class="text-slate-600 italic">暂无消息</div>
+                                            <div v-for="m in activeChatLast3" :key="m.id" class="leading-snug truncate"><span class="text-mystic-gold/80 font-bold">{{ m.name || '匿名' }}</span><span class="text-slate-600">：</span><span class="text-slate-300">{{ m.text }}</span></div>
+                                        </div>
+                                        <div v-if="multiplayerState.isSpectator" class="flex gap-1.5 p-1.5 border-t border-dark-800">
+                                            <input v-model="spectatorChatInput" @keydown.enter.prevent="sendSpectatorChat" placeholder="旁观者群聊..." class="flex-1 min-w-0 bg-dark-950 rounded px-2 py-1 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
+                                            <button @click="sendSpectatorChat" class="shrink-0 px-2 py-1 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded text-xs font-bold transition-all">发送</button>
+                                        </div>
+                                        <div v-else class="flex gap-1.5 p-1.5 border-t border-dark-800">
+                                            <input v-model="groupChatInput" @keydown.enter.prevent="sendGroupChat" placeholder="玩家群聊..." class="flex-1 min-w-0 bg-dark-950 rounded px-2 py-1 border border-dark-700 focus:ring-1 focus:ring-mystic-gold focus:border-mystic-gold text-slate-200 placeholder-slate-600 text-xs">
+                                            <button @click="sendGroupChat" class="shrink-0 px-2 py-1 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded text-xs font-bold transition-all">发送</button>
                                         </div>
                                     </div>
                                 </div>
@@ -5144,7 +5156,7 @@
                     enableCharReview: false, // 审卡功能开关
                     moduleContextLimit: 50000, // 模组传入 AI 的字符上限（0=不限制）；多人模式仅房主设置生效
                     npcCheckByAI: true, // NPC 检定由 AI 代掷（true=仅 AI 消息中的 .rn 生效；false=玩家可自行使用 .rn）
-                    commandHotkeys: ['', '', ''] // 输入栏指令记忆快捷键（3 格，随云同步）
+                    commandHotkeys: ['', '', '', ''] // 输入栏指令记忆快捷键（4 格，随云同步）
                 });
 
                 const charReviewState = reactive({
@@ -5925,7 +5937,7 @@
                 };
                 const chatEnabled = Vue.computed(() => multiplayerState.isSpectator ? appConfig.value['chat.spectator.enabled'] !== false : appConfig.value['chat.player.enabled'] !== false);
                 // 房间群聊：玩家与旁观者各自隔离的轻量频道，独立于 cocState.log 的 AI 对话
-                const groupChat = ref([]); const groupChatInput = ref(''); const spectatorChat = ref([]); const spectatorChatInput = ref(''); const showGroupChat = ref(false); const groupChatScrollEl = ref(null);
+                const groupChat = ref([]); const groupChatInput = ref(''); const spectatorChat = ref([]); const spectatorChatInput = ref(''); const showGroupChat = ref(false); const showGroupChatHistory = ref(false); const groupChatScrollEl = ref(null);
                 // 弹幕：房间内全员可见的漂浮评论，独立于群聊
                 const danmakuItems = ref([]);
                 const danmakuInput = ref('');
@@ -6072,6 +6084,9 @@
                     const inv = cocState.investigators[Number(key)];
                     return inv || null;
                 });
+                const activeChatList = Vue.computed(() => multiplayerState.isSpectator ? spectatorChat.value : groupChat.value);
+                const activeChatLast3 = Vue.computed(() => activeChatList.value.slice(-3));
+                const activeChatCount = Vue.computed(() => activeChatList.value.length);
                 const selectedRoomMember = Vue.computed(() => multiplayerState.members.find(member => member.id === selectedRoomMemberId.value) || null);
                 const inventoryView = Vue.computed(() => {
                     const inv = cocState.investigators[cocState.activeInvestigatorIndex];
@@ -6911,8 +6926,8 @@ const handleAuth = async () => {
                             }
                             Object.assign(settings, parsed);
                             if (!Array.isArray(settings.commandHotkeys)) settings.commandHotkeys = [];
-                            settings.commandHotkeys = settings.commandHotkeys.slice(0, 3);
-                            while (settings.commandHotkeys.length < 3) settings.commandHotkeys.push('');
+                            settings.commandHotkeys = settings.commandHotkeys.slice(0, 4);
+                            while (settings.commandHotkeys.length < 4) settings.commandHotkeys.push('');
                             // 老存档补充后续版本新增的默认 KP 规则（不覆盖用户已有/已改的规则）
                             if (Array.isArray(settings.kpRules)) {
                                 DEFAULT_KP_RULES.forEach(rule => {
@@ -10560,7 +10575,7 @@ ${buildInvestigatorProfile(inv)}
                     kpRulesByCategory, editingRuleId, toggleRuleEdit, resetRule, addKpRule, deleteKpRule,
                     cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,
                     appConfig, loadAppConfig, chatEnabled,
-                    groupChat, groupChatInput, spectatorChat, spectatorChatInput, showGroupChat, groupChatScrollEl, sendGroupChat, sendSpectatorChat,
+                    groupChat, groupChatInput, spectatorChat, spectatorChatInput, showGroupChat, showGroupChatHistory, activeChatList, activeChatLast3, activeChatCount, groupChatScrollEl, sendGroupChat, sendSpectatorChat,
                     danmakuItems, danmakuInput, danmakuEnabled, sendDanmaku,
                     itemsEnabled, itemDefs, selectedItem, itemEffects, selectItem, useItemOn,
                     publicRooms, lobbyLoading, createRoomPublic, roomIsPublic, joinPublicRoom, toggleRoomPublic, refreshLobby, renameRoom,
