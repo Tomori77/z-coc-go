@@ -1439,6 +1439,13 @@
         @keyframes z-danmaku-fly { from { left: 100%; } to { left: -100%; } }
         .z-item-fx { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%); animation: z-item-fx 2.4s ease-out forwards; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
         @keyframes z-item-fx { 0% { opacity: 0; transform: translate(-50%,-30%) scale(.6); } 15% { opacity: 1; transform: translate(-50%,-50%) scale(1.15); } 70% { opacity: 1; transform: translate(-50%,-55%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-80%) scale(1); } }
+        .z-item-fx--img { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%); animation: z-item-fx-img 3s ease-out forwards; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+        @keyframes z-item-fx-img {
+            0% { opacity: 0; transform: translate(-50%,-50%) scale(.7); filter: blur(0); }
+            12% { opacity: 1; transform: translate(-50%,-50%) scale(1); filter: blur(0); }
+            78% { opacity: 1; transform: translate(-50%,-50%) scale(1); filter: blur(0); }
+            100% { opacity: 0; transform: translate(-50%,-50%) scale(1.08); filter: blur(10px); }
+        }
         .z-art-tavern .z-ornamented-card {
             background-image:
                 linear-gradient(145deg, rgba(13,21,27,.955), rgba(4,9,13,.975)),
@@ -2252,8 +2259,9 @@
                         </div>
                         <!-- 道具特效漂浮层（全员可见） -->
                         <div v-if="itemsEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="absolute inset-0 pointer-events-none overflow-hidden z-40">
-                            <div v-for="fx in itemEffects" :key="fx.id" class="z-item-fx text-center">
-                                <div class="text-6xl">{{ fx.emoji }}</div>
+                            <div v-for="fx in itemEffects" :key="fx.id" class="text-center" :class="fx.image ? 'z-item-fx--img' : 'z-item-fx'">
+                                <img v-if="fx.image" :src="fx.image" alt="" class="w-32 h-32 object-contain drop-shadow-[0_0_18px_rgba(220,60,80,0.5)]">
+                                <div v-else class="text-6xl">{{ fx.emoji }}</div>
                                 <div class="text-xs text-mystic-gold font-bold mt-1">{{ fx.fromName }} → {{ fx.toName }}</div>
                             </div>
                         </div>
@@ -2600,7 +2608,7 @@
                                         <div v-if="showAllMembers" class="mt-2 p-2 rounded border border-dark-700 bg-dark-950/95 shadow-xl"><div class="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto custom-scrollbar"><button v-for="member in multiplayerState.members" :key="`all-${member.id}`" @click="onMemberTileClick(member); showAllMembers = false" class="z-member-tile flex flex-col items-center gap-1 p-1 rounded border border-dark-700 bg-dark-800/50 hover:border-slate-500"><div class="w-7 h-7 rounded bg-dark-900 overflow-hidden border border-dark-600"><img v-if="member.avatar" :src="member.avatar" :alt="`${member.name || '成员'}的头像`" class="w-full h-full object-cover"><span v-else class="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-500">{{ (member.name || '?').charAt(0) }}</span></div><span class="w-full truncate text-[9px] text-center text-slate-500">{{ member.name }}</span></button></div></div>
                                     </section>
                                      <section v-if="itemsEnabled" class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">道具</h3><div class="flex flex-wrap items-center gap-2"><button v-for="it in itemDefs" :key="it.key" @click="selectItem(it)" :title="it.label" :class="['px-2 py-1 rounded text-base leading-none border transition-all', selectedItem && selectedItem.key === it.key ? 'bg-mystic-gold/30 border-mystic-gold' : 'bg-dark-800 border-dark-600 hover:border-mystic-gold/50']">{{ it.emoji }}</button></div><div v-if="selectedItem" class="mt-2 text-[10px] text-mystic-gold truncate">已选 {{ selectedItem.emoji }} · 点击成员使用</div></section>
-                                     <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">故事阶段 · 回合</h3><div class="px-3 py-2 rounded border border-dark-700 bg-dark-800/50 text-xs text-slate-400 truncate">{{ cocState.storyStage || '尚未记录' }} · {{ multiplayerState.roundNumber > 0 ? `第 ${multiplayerState.roundNumber} 轮` : '未开始' }}</div></section>
+                                      <section class="border-t border-dark-800 pt-4"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">故事阶段 · 回合</h3><div class="flex gap-2"><div class="flex-1 min-w-0 px-2 py-2 rounded border border-dark-700 bg-dark-800/50"><div class="text-[9px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">阶段</div><div class="text-xs text-slate-300 truncate" :title="cocState.storyStage || '未记录'">{{ cocState.storyStage || '未记录' }}</div></div><div class="flex-1 min-w-0 px-2 py-2 rounded border border-dark-700 bg-dark-800/50"><div class="text-[9px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">回合</div><div class="text-xs text-slate-300">{{ multiplayerState.roundNumber > 0 ? ('第 ' + multiplayerState.roundNumber + ' 轮') : '未开始' }}</div></div></div></section>
                                     <section v-if="multiplayerState.isHost" class="border-t border-dark-800 pt-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">房主功能</h3><span class="text-[9px] font-mono text-slate-600">HOST</span></div><div class="text-[10px] text-slate-500 mb-2 truncate">选中：{{ selectedRoomMember?.name || '请先选择成员' }}</div><select v-model="selectedBindingInvestigatorIndex" :disabled="!selectedRoomMemberId" class="w-full mb-2 px-2 py-2 rounded border border-dark-700 bg-dark-800 text-[10px] text-slate-400 disabled:opacity-35"><option :value="null">选择要绑定的角色卡</option><option v-for="(inv, index) in cocState.investigators" :key="`bind-${index}`" :value="index">{{ inv.name }}{{ multiplayerState.assignments[index] ? `（已绑定）` : '' }}</option></select><div class="grid grid-cols-2 gap-2"><button @click="bindPlayerToCharacter(selectedRoomMemberId, selectedBindingInvestigatorIndex)" :disabled="!selectedRoomMemberId || selectedBindingInvestigatorIndex === null" class="col-span-2 px-2 py-2 rounded border border-mystic-green/40 text-[10px] text-mystic-green disabled:opacity-35 disabled:cursor-not-allowed">绑定玩家</button><button @click="moveToSpectator(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">移入旁观</button><button @click="restorePlayer(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">恢复玩家</button><button @click="releaseCharacter(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-dark-700 text-[10px] text-slate-400 disabled:opacity-35 disabled:cursor-not-allowed">释放角色</button><button @click="kickPlayer(selectedRoomMemberId)" :disabled="!selectedRoomMemberId" class="px-2 py-2 rounded border border-red-900/40 text-[10px] text-red-400 disabled:opacity-35 disabled:cursor-not-allowed">踢出房间</button><button @click="viewMemberCard(selectedRoomMember)" :disabled="!selectedRoomMemberId" class="col-span-2 px-2 py-2 rounded border border-mystic-gold/30 text-[10px] text-mystic-gold disabled:opacity-35 disabled:cursor-not-allowed">查看角色卡</button></div><button @click="forceEndRound()" class="w-full mt-2 px-2 py-2 rounded border border-mystic-gold/50 bg-mystic-gold/10 text-[10px] font-bold text-mystic-gold hover:bg-mystic-gold/20 transition-colors">结束本轮</button></section>
                                 </div>
                             </aside>
@@ -5950,13 +5958,15 @@
                 const itemsCooldown = Vue.computed(() => Number(appConfig.value['items.cooldown_ms']) || 0);
                 const selectedItem = ref(null);
                 const itemEffects = ref([]);
+                const ITEM_EFFECT_IMAGES = { flower: 'assets/art/user-edited/red-flower.webp' };
                 let itemsLastUsed = 0;
                 const selectItem = (def) => { if (!def) return; selectedItem.value = (selectedItem.value && selectedItem.value.key === def.key) ? null : def; };
-                const playItemEffect = (emoji, fromName, toName) => {
+                const playItemEffect = (item, fromName, toName) => {
                     const id = 'fx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-                    itemEffects.value.push({ id, emoji, fromName, toName });
+                    const image = ITEM_EFFECT_IMAGES[item && item.key] || '';
+                    itemEffects.value.push({ id, emoji: item && item.emoji, image, fromName, toName });
                     if (itemEffects.value.length > 20) itemEffects.value.splice(0, itemEffects.value.length - 20);
-                    setTimeout(() => { itemEffects.value = itemEffects.value.filter(fx => fx.id !== id); }, 2600);
+                    setTimeout(() => { itemEffects.value = itemEffects.value.filter(fx => fx.id !== id); }, 3000);
                 };
                 const useItemOn = (member) => {
                     if (!multiplayerState.inRoom) return showToast('请先进入房间', 'warning');
@@ -5970,7 +5980,7 @@
                     }
                     const item = selectedItem.value;
                     itemsLastUsed = now;
-                    playItemEffect(item.emoji, user.name, member.name);
+                    playItemEffect(item, user.name, member.name);
                     showToast(user.name + ' 对 ' + (member.name || '') + ' 使用了 ' + item.emoji + (item.label || ''), 'info');
                     broadcastMessage({ type: 'item_use', item: { key: item.key, emoji: item.emoji, label: item.label }, target: { id: member.id, name: member.name }, user: { id: getRoomSessionId(), name: user.name } });
                     selectedItem.value = null;
@@ -9304,7 +9314,7 @@ ${buildInvestigatorProfile(inv)}
                     'sync_state', 'sync_log_append', 'update_last_message', 'update_last_message_full',
                     'sync_module', 'sync_investigators', 'sync_assignments', 'game_start', 'game_ended',
                     'room_closed', 'grant_cot_access', 'coj_toggle', 'generating_start', 'generating_end',
-                    'regenerate_start', 'distribute_reports'
+                    'regenerate_start', 'distribute_reports', 'kick_player', 'move_to_spectator'
                 ]);
                 const getRoomSessionId = () => String(multiplayerState.myId || user.uuid || '').trim();
                 const getHostSessionKey = (roomId) => `${ROOM_HOST_SESSION_PREFIX}${String(roomId || '').trim().toUpperCase()}`;
@@ -9789,8 +9799,16 @@ ${buildInvestigatorProfile(inv)}
                                 }
                                 const existing = multiplayerState.members.find(m => m.id === newMember.id);
                                 if (existing) {
-                                    // 掉线重连：保留原有身份（玩家恢复其角色；被移入旁观者仍在旁观席）
+                                    // 掉线重连：未开局时允许按本次加入选择切换身份；转为旁观则释放角色
                                     existing.isOffline = false;
+                                    if (cocState.gameState !== 'playing' && payload.isSpectator !== undefined) {
+                                        const want = payload.isSpectator === true;
+                                        if (existing.isSpectator !== want) {
+                                            existing.isSpectator = want;
+                                            existing.isReady = false;
+                                            if (want) releaseMemberAssignment(existing.id);
+                                        }
+                                    }
                                     showToast(`${newMember.name} 重新连接${existing.isSpectator ? '（旁观）' : ''}`, 'info');
                                 } else {
                                     // 新成员：已开局强制旁观；未开局默认玩家（可自选旁观）
@@ -10110,7 +10128,7 @@ ${buildInvestigatorProfile(inv)}
                         case 'item_use': {
                             if (itemsEnabled.value && payload && payload.item) {
                                 const u = payload.user || {}; const tgt = payload.target || {};
-                                if (u.id !== getRoomSessionId()) playItemEffect(payload.item.emoji, u.name, tgt.name);
+                                if (u.id !== getRoomSessionId()) playItemEffect(payload.item, u.name, tgt.name);
                             }
                             break;
                         }
@@ -10312,22 +10330,24 @@ ${buildInvestigatorProfile(inv)}
                     broadcastFullState();
                     showToast(`已踢出 ${target.name}（角色绑定已保留）`, 'success');
                 };
-                // 房主操作：移入旁观（保留角色绑定；仅“释放角色”解除绑定）
+                // 房主操作：移入旁观（释放角色绑定，新晋玩家可自由绑卡）
                 const moveToSpectator = (targetId) => {
                     if (!multiplayerState.isHost) return;
                     const target = multiplayerState.members.find(m => m.id === targetId);
                     if (!target) return;
                     target.isSpectator = true;
+                    releaseMemberAssignment(targetId);
                     broadcastMessage({ type: 'move_to_spectator', userId: targetId });
                     broadcastFullState();
-                    showToast(`已将 ${target.name} 移入旁观席，角色绑定已保留`, 'success');
+                    showToast(`已将 ${target.name} 移入旁观席（角色已释放）`, 'success');
                 };
-                // 房主操作：恢复为玩家（仅准备间；旁观者转回玩家身份）
+                // 房主操作：恢复为玩家（仅准备间；旁观者转回玩家身份，需重新准备）
                 const restorePlayer = (targetId) => {
                     if (!multiplayerState.isHost) return;
                     const target = multiplayerState.members.find(m => m.id === targetId);
                     if (!target) return;
                     target.isSpectator = false;
+                    target.isReady = false;
                     broadcastFullState();
                     showToast(`已将 ${target.name} 恢复为玩家`, 'success');
                 };
