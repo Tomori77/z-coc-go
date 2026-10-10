@@ -1435,6 +1435,8 @@
             color: rgba(231,221,197,.72);
         }
         @keyframes zHeroSettle { from { opacity: 0; transform: scale(1.012) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .z-danmaku { position: absolute; left: 100%; white-space: nowrap; will-change: transform; animation-name: z-danmaku-fly; animation-timing-function: linear; animation-fill-mode: forwards; text-shadow: 0 1px 3px rgba(0,0,0,.85); }
+        @keyframes z-danmaku-fly { from { left: 100%; } to { left: -100%; } }
         .z-art-tavern .z-ornamented-card {
             background-image:
                 linear-gradient(145deg, rgba(13,21,27,.955), rgba(4,9,13,.975)),
@@ -2242,6 +2244,10 @@
                     </div>
                 </div>
                 <div v-else class="flex-1 flex flex-col h-full overflow-hidden relative">
+                        <!-- 弹幕漂浮层（全员可见） -->
+                        <div v-if="danmakuEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="absolute inset-0 pointer-events-none overflow-hidden z-30">
+                            <div v-for="d in danmakuItems" :key="d.id" class="z-danmaku text-sm font-bold text-mystic-gold" :style="{ top: d.top + '%', animationDuration: d.duration + 's' }">{{ d.name && (d.name + '：') }}{{ d.text }}</div>
+                        </div>
                         <!-- Game Header -->
                         <div class="min-h-16 py-2 bg-dark-950/80 backdrop-blur-md border-b border-dark-800 flex items-center justify-between px-4 md:px-6 z-10 shadow-2xl flex-shrink-0 relative safe-pt">
                             <div class="absolute inset-0 bg-gradient-to-r from-mystic-gold/5 via-transparent to-transparent pointer-events-none"></div>
@@ -2782,6 +2788,14 @@
                             </aside>
                         </div>
 
+                        <!-- 弹幕输入（全员可见） -->
+                        <div v-if="danmakuEnabled && cocState.mode === 'multi' && multiplayerState.inRoom" class="px-2 pt-2 z-20 relative">
+                            <div class="max-w-4xl mx-auto w-full flex items-center gap-2 bg-dark-900 border border-dark-800 rounded-lg px-3 py-1.5">
+                                <span class="text-xs shrink-0">🎐</span>
+                                <input v-model="danmakuInput" @keydown.enter.prevent="sendDanmaku" maxlength="60" placeholder="发送弹幕（全员可见）..." class="flex-1 bg-transparent text-xs text-slate-200 placeholder-slate-600 outline-none">
+                                <button @click="sendDanmaku" class="px-3 py-1 bg-mystic-gold/20 hover:bg-mystic-gold/30 border border-mystic-gold/50 text-mystic-gold rounded text-xs font-bold transition-all">发送</button>
+                            </div>
+                        </div>
                         <!-- 群聊 Dock（玩家/旁观者各自隔离，独立于 AI 对话日志） -->
                         <div v-if="cocState.mode === 'multi' && multiplayerState.inRoom && chatEnabled" class="px-2 pt-2 z-20 relative">
                             <div class="max-w-4xl mx-auto w-full bg-dark-900 border border-dark-800 rounded-lg overflow-hidden">
@@ -5911,6 +5925,12 @@
                 const chatEnabled = Vue.computed(() => multiplayerState.isSpectator ? appConfig.value['chat.spectator.enabled'] !== false : appConfig.value['chat.player.enabled'] !== false);
                 // 房间群聊：玩家与旁观者各自隔离的轻量频道，独立于 cocState.log 的 AI 对话
                 const groupChat = ref([]); const groupChatInput = ref(''); const spectatorChat = ref([]); const spectatorChatInput = ref(''); const showGroupChat = ref(false); const groupChatScrollEl = ref(null);
+                // 弹幕：房间内全员可见的漂浮评论，独立于群聊
+                const danmakuItems = ref([]);
+                const danmakuInput = ref('');
+                const danmakuEnabled = Vue.computed(() => appConfig.value['danmaku.enabled'] !== false);
+                const danmakuCooldown = Vue.computed(() => Number(appConfig.value['danmaku.cooldown_ms']) || 0);
+                let danmakuLastSent = 0;
                 // 仅在用户已经接近底部时跟随新消息，避免生成长正文时打断阅读。
                 const chatAutoScroll = ref(true);
                 const handleChatScroll = () => {
@@ -9384,6 +9404,31 @@ ${buildInvestigatorProfile(inv)}
                     broadcastMessage({ type: 'spectator_chat', text: msg.text, user: { id: getRoomSessionId(), name: user.name } });
                 };
 
+                // ---- 弹幕（全员可见，非房主消息类型 danmaku）----
+                const pushDanmaku = (text, name) => {
+                    if (!danmakuEnabled.value) return;
+                    const id = 'dm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+                    const duration = 6 + Math.random() * 3;
+                    danmakuItems.value.push({ id, text, name, top: 5 + Math.random() * 65, duration });
+                    if (danmakuItems.value.length > 40) danmakuItems.value.splice(0, danmakuItems.value.length - 40);
+                    setTimeout(() => { danmakuItems.value = danmakuItems.value.filter(d => d.id !== id); }, (duration * 1000) + 400);
+                };
+                const sendDanmaku = () => {
+                    if (!multiplayerState.inRoom) return;
+                    if (!danmakuEnabled.value) return showToast('弹幕未开启', 'warning');
+                    const now = Date.now();
+                    if (now - danmakuLastSent < danmakuCooldown.value) {
+                        const wait = Math.ceil((danmakuCooldown.value - (now - danmakuLastSent)) / 1000);
+                        return showToast('弹幕冷却中（' + wait + 's）', 'warning');
+                    }
+                    const text = danmakuInput.value.trim();
+                    if (!text) return;
+                    danmakuLastSent = now;
+                    pushDanmaku(text, user.name);
+                    danmakuInput.value = '';
+                    broadcastMessage({ type: 'danmaku', text, user: { id: getRoomSessionId(), name: user.name } });
+                };
+
                 const stopRoomPolling = () => {
                     if (roomPollTimer) {
                         clearInterval(roomPollTimer);
@@ -9993,6 +10038,12 @@ ${buildInvestigatorProfile(inv)}
                                 }
                             }
                             break;
+                        case 'danmaku':
+                            if (danmakuEnabled.value && payload && typeof payload.text === 'string' && payload.text) {
+                                const u = payload.user || {};
+                                if (u.id !== getRoomSessionId()) pushDanmaku(payload.text, u.name);
+                            }
+                            break;
                     }
                 };
 
@@ -10454,6 +10505,7 @@ ${buildInvestigatorProfile(inv)}
                     cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,
                     appConfig, loadAppConfig, chatEnabled,
                     groupChat, groupChatInput, spectatorChat, spectatorChatInput, showGroupChat, groupChatScrollEl, sendGroupChat, sendSpectatorChat,
+                    danmakuItems, danmakuInput, danmakuEnabled, sendDanmaku,
                     publicRooms, lobbyLoading, createRoomPublic, roomIsPublic, joinPublicRoom, toggleRoomPublic, refreshLobby, renameRoom,
                     showMentionList, mentionCandidates, handleInput, selectMention, savedGames, savesFilter, groupedSaves, openFolders, toggleFolder, moveSaveToFolder, renameFolder, 
                     isSavesEditing, toggleSavesEditMode, moveFolder, deleteFolder, editFolderName, promptMoveToFolder, folderManagementState, closeFolderModal, confirmFolderAction, 
