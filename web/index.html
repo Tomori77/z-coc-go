@@ -9867,8 +9867,12 @@ ${buildInvestigatorProfile(inv)}
                                 if (payload.module) cocState.module = payload.module;
                                 if (payload.members) {
                                     multiplayerState.members = payload.members;
+                                    // 兜底：确保成员表包含自己（房主未及时收到 player_joined 时也不至于看不到自己）
+                                    if (!multiplayerState.members.some(m => m.id === getRoomSessionId())) {
+                                        multiplayerState.members = [{ id: getRoomSessionId(), name: user.name, avatar: user.avatar, isHost: false, isReady: multiplayerState.isReady || false, isSpectator: multiplayerState.isSpectator, isOffline: false }, ...multiplayerState.members];
+                                    }
                                     // 从成员表同步自身旁观身份（被踢/开局重连由房主判定）
-                                    const selfMember = payload.members.find(m => m.id === getRoomSessionId());
+                                    const selfMember = multiplayerState.members.find(m => m.id === getRoomSessionId());
                                     multiplayerState.isSpectator = Boolean(selfMember && selfMember.isSpectator);
                                 }
                                 if (payload.kickedMembers) multiplayerState.kickedMembers = payload.kickedMembers;
@@ -10026,6 +10030,13 @@ ${buildInvestigatorProfile(inv)}
                              break;
                         case 'request_sync':
                              if (multiplayerState.isHost) {
+                                 // 兜底：若请求者不在成员表（player_joined 丢帧），据 request_sync 补加
+                                 const uid = payload.userId;
+                                 if (uid && !multiplayerState.members.some(m => m.id === uid)) {
+                                     const asSpectator = cocState.gameState === 'playing' || payload.isSpectator === true;
+                                     multiplayerState.members.push({ id: uid, name: payload.name || uid, avatar: payload.avatar || '', isHost: false, isReady: false, isSpectator: asSpectator, isOffline: false });
+                                 }
+                                 broadcastState();
                                  broadcastFullState();
                              }
                              break;
@@ -10195,7 +10206,7 @@ ${buildInvestigatorProfile(inv)}
                                 showRoomTransportError('房主未返回同步数据，请确认房主仍在房间中');
                                 return;
                             }
-                            broadcastMessage({ type: 'request_sync', userId: getRoomSessionId() });
+                            broadcastMessage({ type: 'request_sync', userId: getRoomSessionId(), name: user.name, avatar: user.avatar, isSpectator: multiplayerState.isSpectator });
                             joinRetryInterval = setTimeout(retrySync, Math.min(3000 * joinRetryAttempts, 10000));
                         };
                         joinRetryInterval = setTimeout(retrySync, 3000);
@@ -10579,7 +10590,7 @@ ${buildInvestigatorProfile(inv)}
                                 startRoomPolling();
                                 if (multiplayerState.useWebSocket) openRoomSocket();
                                 if (!multiplayerState.isHost) {
-                                    broadcastMessage({ type: 'request_sync', userId: getRoomSessionId() });
+                            broadcastMessage({ type: 'request_sync', userId: getRoomSessionId(), name: user.name, avatar: user.avatar, isSpectator: multiplayerState.isSpectator });
                                 } else {
                                     broadcastState();
                                 }

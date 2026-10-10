@@ -344,6 +344,17 @@ func (h *Hub) broadcast(roomID string, data []byte) {
 	}
 }
 
+// BroadcastMessage 把一条已落库的消息实时广播给本房间的 WS 连接。
+// 供 HTTP push 回退通道调用：此前 HTTP push 只落库、不广播，导致走 HTTP 回退
+// 的客户端发出的消息对 WS 客户端不可见（如 player_joined 丢失 → 成员表缺人）。
+func (h *Hub) BroadcastMessage(roomID string, id int64, senderID string, payload json.RawMessage) {
+	data, err := marshalFrame(messageFrame{Type: TypeMessage, ID: id, SenderID: senderID, Payload: payload})
+	if err != nil {
+		return
+	}
+	h.broadcast(roomID, data)
+}
+
 func (h *Hub) broadcastPresence(roomID string) {
 	h.mu.Lock()
 	rm := h.rooms[roomID]

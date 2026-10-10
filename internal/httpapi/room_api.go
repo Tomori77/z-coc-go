@@ -184,6 +184,9 @@ func (s *Server) roomPush(w http.ResponseWriter, r *http.Request) {
 	_ = s.store.PruneMessages(r.Context(), roomID, s.cfg.MaxRoomMessages)
 	_ = s.store.TouchRoom(r.Context(), roomID)
 
+	// HTTP push 回退通道也实时广播给 WS 客户端（与 WS send 行为对齐）
+	s.hub.BroadcastMessage(roomID, newID, senderID, json.RawMessage(payloadJSON))
+
 	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "id": newID})
 }
 
