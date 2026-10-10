@@ -1,0 +1,7 @@
+.git
+node_modules
+www
+android
+*.log
+.env
+.env.*

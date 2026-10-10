@@ -1,0 +1,13 @@
+{
+  "appId": "com.zarkto.zcoc",
+  "appName": "z-coc",
+  "webDir": "www",
+  "server": {
+    "hostname": "localhost",
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#05090f",
+    "allowMixedContent": false
+  }
+}

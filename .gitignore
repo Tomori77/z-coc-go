@@ -1,0 +1,18 @@
+# Go build output
+/z-coc
+/z-coc.exe
+*.exe
+
+# Node / frontend build
+node_modules/
+www/
+*.log
+
+# Environment (never commit secrets)
+.env
+.env.*
+
+# Image-generation source masters are not deployment assets.
+tmp/
+assets/art/**/*.png
+assets/art/**/*.tif

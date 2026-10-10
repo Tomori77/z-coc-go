@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "Zarkto's Table",
+  "short_name": "Z-COC",
+  "description": "Call of Cthulhu TRPG Assistant",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
