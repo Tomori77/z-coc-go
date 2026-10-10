@@ -59,6 +59,23 @@ func (s *Store) FindUserByToken(ctx context.Context, userUUID, tokenHash, token 
 	return id, storedToken, true, nil
 }
 
+// FindUserUUIDByToken resolves a user uuid from a bearer token, accepting
+// either the sha256 hash or the legacy plaintext token. It matches the query
+// semantics of require_user_token() without knowing the user upfront.
+func (s *Store) FindUserUUIDByToken(ctx context.Context, tokenHash, token string) (uuid string, found bool, err error) {
+	row := s.Pool.QueryRow(ctx,
+		`SELECT user_uuid FROM users WHERE auth_token = $1 OR auth_token = $2 LIMIT 1`,
+		tokenHash, token)
+	err = row.Scan(&uuid)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return uuid, true, nil
+}
+
 // UpdateAuthToken stores the sha256 hash of the current token.
 func (s *Store) UpdateAuthToken(ctx context.Context, userUUID, tokenHash string) error {
 	_, err := s.Pool.Exec(ctx, `UPDATE users SET auth_token = $1 WHERE user_uuid = $2`, tokenHash, userUUID)

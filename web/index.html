@@ -3064,8 +3064,9 @@
                         </div>
                         <div class="flex gap-2 w-full md:w-auto shrink-0 justify-end"><input v-model="friendInput" placeholder="输入同伴 ID" class="w-full md:w-auto bg-dark-900 border border-dark-600 text-slate-300 rounded px-3 py-1.5 text-sm focus:border-mystic-gold outline-none flex-1 md:flex-none"><button @click="addFriend" class="bg-dark-800 text-mystic-gold border border-mystic-gold/30 px-4 py-1.5 rounded text-sm font-bold hover:bg-mystic-gold hover:text-dark-900 transition-colors shrink-0 whitespace-nowrap">添加</button></div>
                     </div>
+                    <div v-if="friendInvites.length > 0" class="space-y-2"><h4 class="font-bold text-xs text-slate-500 uppercase tracking-widest mb-2">房间邀请</h4><div v-for="inv in friendInvites" :key="inv.id" class="bg-dark-800 p-4 rounded border border-mystic-gold/30 flex justify-between items-center"><span class="font-bold text-slate-200 font-serif">{{ inv.name }} <span class="text-xs text-slate-500 font-mono ml-2">房间 {{ inv.room_id }}</span></span><div class="flex gap-2"><button @click="respondInvite(inv, true)" class="px-3 py-1 text-xs bg-mystic-gold text-dark-900 rounded font-bold hover:bg-yellow-600">加入</button><button @click="respondInvite(inv, false)" class="px-3 py-1 text-xs bg-dark-700 text-slate-400 rounded hover:bg-dark-600">忽略</button></div></div></div>
                     <div v-if="friendRequests.length > 0" class="space-y-2"><h4 class="font-bold text-xs text-slate-500 uppercase tracking-widest mb-2">收到的信号</h4><div v-for="req in friendRequests" :key="req.id" class="bg-dark-800 p-4 rounded border border-mystic-gold/30 flex justify-between items-center"><span class="font-bold text-slate-200 font-serif">{{ req.name }}</span><div class="flex gap-2"><button @click="acceptFriend(req)" class="px-3 py-1 text-xs bg-mystic-gold text-dark-900 rounded font-bold hover:bg-yellow-600">接受</button><button @click="rejectFriend(req)" class="px-3 py-1 text-xs bg-dark-700 text-slate-400 rounded hover:bg-dark-600">拒绝</button></div></div></div>
-                    <div class="space-y-3"><div v-for="friend in friends" :key="friend.uuid" class="glass-panel p-4 rounded border border-dark-700 flex justify-between items-center hover:border-slate-600 transition-colors"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded bg-dark-800 overflow-hidden relative border border-dark-600"><img v-if="friend.avatar" :src="friend.avatar" :alt="`${friend.name || '好友'}的头像`" class="w-full h-full object-cover"><div v-if="friend.isOnline" class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-mystic-green border border-dark-900 rounded-full shadow-[0_0_8px_rgba(45,212,191,0.8)]"></div></div><div><div class="font-bold text-slate-200 font-serif">{{ friend.name }}</div><div class="text-xs font-mono" :class="friend.isOnline ? 'text-mystic-green' : 'text-slate-600'">{{ friend.isOnline ? '在线' : '离线' }}</div></div></div><button v-if="friend.isOnline" @click="inviteFriend(friend)" class="px-3 py-1.5 bg-dark-800 text-slate-300 border border-dark-600 rounded text-xs font-bold hover:text-mystic-gold hover:border-mystic-gold transition-colors uppercase tracking-wider">邀请</button></div><div v-if="friends.length === 0" class="text-center py-12 text-slate-600 border border-dashed border-dark-800 rounded bg-dark-900/20 font-serif italic">孤独是理智的最后防线...</div></div>
+                    <div class="space-y-3"><div v-for="friend in friends" :key="friend.uuid" class="glass-panel p-4 rounded border border-dark-700 flex justify-between items-center hover:border-slate-600 transition-colors"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded bg-dark-800 overflow-hidden relative border border-dark-600"><img v-if="friend.avatar" :src="friend.avatar" :alt="`${friend.name || '好友'}的头像`" class="w-full h-full object-cover"><div v-if="friend.isOnline" class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-mystic-green border border-dark-900 rounded-full shadow-[0_0_8px_rgba(45,212,191,0.8)]"></div><div v-else-if="friend.status === 'away'" class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-amber-400 border border-dark-900 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.8)]"></div></div><div><div class="font-bold text-slate-200 font-serif">{{ friend.name }}</div><div class="text-xs font-mono" :class="friend.status === 'online' ? 'text-mystic-green' : (friend.status === 'away' ? 'text-amber-400' : 'text-slate-600')">{{ friend.status === 'online' ? '在线' : (friend.status === 'away' ? '离开' : '离线') }}</div></div></div><button v-if="friend.status !== 'offline'" @click="inviteFriend(friend)" class="px-3 py-1.5 bg-dark-800 text-slate-300 border border-dark-600 rounded text-xs font-bold hover:text-mystic-gold hover:border-mystic-gold transition-colors uppercase tracking-wider">邀请</button></div><div v-if="friends.length === 0" class="text-center py-12 text-slate-600 border border-dashed border-dark-800 rounded bg-dark-900/20 font-serif italic">孤独是理智的最后防线...</div></div>
                 </div>
             </div>
 
@@ -4778,6 +4779,8 @@
                 };
                 watch(currentView, (view) => {
                     if (view !== 'settings') mobileSettingsSection.value = 'menu';
+                    if (view === 'friends') { refreshFriends(); startFriendPolling(); }
+                    else stopFriendPolling();
                 });
                 const toasts = ref([]);
                 const confirmState = reactive({ show: false, title: '', message: '', confirmText: '确定', cancelText: '取消', resolve: null });
@@ -5802,6 +5805,7 @@
                 let joinRetryInterval = null;
                 let joinRetryAttempts = 0;
                 let roomPollTimer = null;
+                let friendPollTimer = null;
                 let roomLastMessageId = 0;
                 let roomPollInFlight = false;
                 let lastRoomErrorAt = 0;
@@ -5811,7 +5815,7 @@
                 let roomSocketRetry = 0;
                 let roomSocketRetryTimer = null;
                 let roomPingTimer = null;
-                const friends = ref([]); const friendRequests = ref([]); const friendInput = ref(''); const showJoinInput = ref(false); const joinRoomId = ref(''); const joinAsSpectator = ref(false); const savedGames = ref([]);
+                const friends = ref([]); const friendRequests = ref([]); const friendInvites = ref([]); const friendInput = ref(''); const showJoinInput = ref(false); const joinRoomId = ref(''); const joinAsSpectator = ref(false); const savedGames = ref([]);
                 const savesFilter = ref('all');
                 const isSavesEditing = ref(false);
                 const folderOrder = ref([]); // 记录手动排序顺序
@@ -9875,9 +9879,91 @@ ${buildInvestigatorProfile(inv)}
                     broadcastFullState();
                     showToast('已取消踢出，该玩家可重新进入房间', 'success');
                 };
-                const addFriend = () => { /* ... */ };
-                const acceptFriend = (req) => { /* ... */ };
-                const inviteFriend = (f) => { /* ... */ };
+                const friendApi = async (action, { method = 'GET', query = {}, body = null } = {}) => {
+                    const params = new URLSearchParams({ action });
+                    Object.entries(query).forEach(([key, value]) => {
+                        if (value !== undefined && value !== null && value !== '') params.set(key, value);
+                    });
+                    try {
+                        const res = await fetch(window.ZCOC_RUNTIME.apiUrl(`friend_api.php?${params.toString()}`), {
+                            method,
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${authState.token}`
+                            },
+                            ...(body ? { body: JSON.stringify(body) } : {})
+                        });
+                        if (res.status === 401) {
+                            showToast('登录已过期，请重新登录', 'error');
+                            return null;
+                        }
+                        const data = await res.json().catch(() => ({}));
+                        return { ...data, httpStatus: res.status, httpOk: res.ok };
+                    } catch (e) {
+                        console.error('Friend API failed:', e);
+                        return null;
+                    }
+                };
+                const refreshFriends = async () => {
+                    if (!authState.isLoggedIn || !authState.token) return;
+                    const result = await friendApi('list');
+                    if (!result || result.status !== 'success') return;
+                    friends.value = Array.isArray(result.friends) ? result.friends : [];
+                    friendRequests.value = Array.isArray(result.requests) ? result.requests : [];
+                    friendInvites.value = Array.isArray(result.invites) ? result.invites : [];
+                };
+                const startFriendPolling = () => {
+                    stopFriendPolling();
+                    friendPollTimer = setInterval(() => { refreshFriends(); }, 15000);
+                };
+                const stopFriendPolling = () => {
+                    if (friendPollTimer) {
+                        clearInterval(friendPollTimer);
+                        friendPollTimer = null;
+                    }
+                };
+                const addFriend = async () => {
+                    if (!authState.isLoggedIn || !authState.token) return showToast('请先登录后再添加同伴', 'warning');
+                    const target = String(friendInput.value || '').trim();
+                    if (!target) return showToast('请输入同伴 ID', 'warning');
+                    const found = await friendApi('search', { query: { q: target } });
+                    if (!found || found.status !== 'success' || !found.user) return showToast('未找到该同伴', 'warning');
+                    const result = await friendApi('request', { method: 'POST', body: { target_uuid: found.user.uuid } });
+                    if (!result || result.status !== 'success') return showToast(result?.message || '发送失败，请稍后重试', 'error');
+                    showToast(result.message || '已发送信号', 'success');
+                    friendInput.value = '';
+                    refreshFriends();
+                };
+                const acceptFriend = async (req) => {
+                    const result = await friendApi('accept', { method: 'POST', body: { request_id: req.id } });
+                    if (!result || result.status !== 'success') return showToast(result?.message || '操作失败，请稍后重试', 'error');
+                    friendRequests.value = friendRequests.value.filter(r => r.id !== req.id);
+                    showToast('已成为同伴', 'success');
+                    refreshFriends();
+                };
+                const rejectFriend = async (req) => {
+                    const result = await friendApi('reject', { method: 'POST', body: { request_id: req.id } });
+                    if (!result || result.status !== 'success') return showToast(result?.message || '操作失败，请稍后重试', 'error');
+                    friendRequests.value = friendRequests.value.filter(r => r.id !== req.id);
+                    showToast('已拒绝', 'success');
+                };
+                const inviteFriend = async (f) => {
+                    if (!multiplayerState.inRoom || !multiplayerState.roomId) return showToast('请先进入房间再邀请同伴', 'warning');
+                    const result = await friendApi('invite', { method: 'POST', body: { friend_uuid: f.uuid, room_id: multiplayerState.roomId } });
+                    if (!result || result.status !== 'success') return showToast(result?.message || '邀请发送失败', 'error');
+                    showToast('邀请已发出', 'success');
+                };
+                const respondInvite = async (inv, accept) => {
+                    const result = await friendApi('respond', { method: 'POST', body: { invite_id: inv.id, accept: !!accept } });
+                    if (!result || result.status !== 'success') return showToast(result?.message || '操作失败，请稍后重试', 'error');
+                    friendInvites.value = friendInvites.value.filter(i => i.id !== inv.id);
+                    if (accept) {
+                        joinRoomId.value = inv.room_id;
+                        joinAsSpectator.value = false;
+                        joinRoom(joinRoomId.value);
+                    }
+                    refreshFriends();
+                };
 
                 const checkPendingModule = () => {
                     const pendingStr = localStorage.getItem('coc_pending_module');
@@ -9944,14 +10030,14 @@ ${buildInvestigatorProfile(inv)}
                     currentView, showMobileMenu, showMobileRightSidebar, showCharacterDrawer, showAllMembers, selectedRoomMemberId, selectedBindingInvestigatorIndex, hasActiveInvestigator, activeInvestigatorName, selectedRoomMember, selectRoomMember, bindPlayerToCharacter, inventoryView, openCharacterDrawer, closeCharacterDrawer, mobileSettingsSection, mobileSettingsGroups, mobileSettingsTitle, openMobileSettingsSection, backMobileSettings, user, settings, toasts, confirmState, authState, handleAuth, handleLogout, showBroadcast, dontShowBroadcast, closeBroadcast,
                     cloudSyncState, cloudSyncStatusLabel, cloudSyncStatusClass, cloudSyncStatusDotClass, handleManualSync, resolveConflictKeepLocal, resolveConflictUseCloud, resolveConflictMerge,
                     kpRulesByCategory, editingRuleId, toggleRuleEdit, resetRule, addKpRule, deleteKpRule,
-                    cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInput, normalizeInventoryData,
+                    cocState, cocInput, cocInputRef, cocChatContainer, isGenerating, chatAutoScroll, handleChatScroll, multiplayerState, showJoinInput, joinRoomId, friends, friendRequests, friendInvites, friendInput, normalizeInventoryData,
                     showMentionList, mentionCandidates, handleInput, selectMention, savedGames, savesFilter, groupedSaves, openFolders, toggleFolder, moveSaveToFolder, renameFolder, 
                     isSavesEditing, toggleSavesEditMode, moveFolder, deleteFolder, editFolderName, promptMoveToFolder, folderManagementState, closeFolderModal, confirmFolderAction, 
                     deleteFolderState, openDeleteFolderModal, closeDeleteFolderModal, confirmDissolveFolder, confirmDeleteAllInFolder, isRoundLocked, hasAiTeammates, visibleSkills, hasArchiveExtras, knownInfoToArray, knownInfoDialog, kickPlayer, joinAsSpectator, moveToSpectator, restorePlayer, releaseCharacter, unkickMember, applyReportToInvestigator,
                     commandPickerState, commonCommands, hotkeyPressStart, hotkeyPressEnd, assignHotkey,
                     selectCocMode, toggleCojMode, exitCocMode, exitCocGame, startCocGame, sendCocMessage, saveGame, deleteSave, loadSave, exportSave, importSave,
                     importCocModule, importSupplementaryImages, saveManualModule, importInvestigator, deleteInvestigator,
-                    initBackend, createRoom, joinRoom, leaveRoom, addFriend, acceptFriend, inviteFriend,
+                    initBackend, createRoom, joinRoom, leaveRoom, addFriend, acceptFriend, rejectFriend, inviteFriend, respondInvite, refreshFriends,
                     handleUserAvatarUpload, saveData, renderMarkdown, copyToClipboard,
                     charReviewState, startCharReview, importReviewModule, importReviewInvestigator,
                     toggleReady, allPlayersReady, handleInvestigatorClick, toggleAiPlayer,
