@@ -41,11 +41,11 @@
 
 ## Phase 2 — Go 同时托管静态，替换镜像
 
-- [ ] 2.1 静态嵌入（`web/` 目录 或 根 `embed.go`，见 `GO_BACKEND_PLAN.md` §5）
-- [ ] 2.2 静态中间件：缓存头（7 天 / 启动图 immutable）、gzip/brotli、安全头 + **CSP 保持原样**、SPA 回退、`404.html`
-- [ ] 2.3 同步 `sw.js` 的 `APP_SHELL` 与 `tools/build-mobile.mjs` 路径（若选 `web/` 方案）
-- [ ] 2.4 切换 Dockerfile 为 Go 镜像；**保留旧 PHP 镜像 tag 作回滚**
-- [ ] 2.5 验收：静态头/CSP 与旧站一致、SPA 回退、smoke、移动端联调
+- [x] 2.1 静态嵌入（`web/` 目录 或 根 `embed.go`，见 `GO_BACKEND_PLAN.md` §5）
+- [x] 2.2 静态中间件：缓存头（7 天 / 启动图 immutable）、gzip/brotli、安全头 + **CSP 保持原样**、SPA 回退、`404.html`
+- [x] 2.3 同步 `sw.js` 的 `APP_SHELL` 与 `tools/build-mobile.mjs` 路径（若选 `web/` 方案）
+- [x] 2.4 切换 Dockerfile 为 Go 镜像；**保留旧 PHP 镜像 tag 作回滚**
+- [x] 2.5 验收：静态头/CSP 与旧站一致、SPA 回退、smoke、移动端联调
 - **验收**：静态头与 CSP 一致；SPA 回退与 `404.html` 正常；smoke 27/27。
 
 ## Phase 3 — WebSocket 实时化
@@ -92,6 +92,6 @@
 |---|---|---|---|
 | Phase 0 基线 | 完成 | | baseline tag + smoke 27/27 |
 | Phase 1 Go API | 完成 | | Go 服务，smoke 27/27（e4beb80） |
-| Phase 2 静态托管 | 未开始 | | |
+| Phase 2 静态托管 | 完成 | | go:embed + 静态头/缓存/CSP/SPA，smoke 27/27 |
 | Phase 3 WebSocket | 未开始 | | |
 | Phase 4 路线图 | 未开始 | | |

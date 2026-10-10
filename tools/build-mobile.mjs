@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const webRoot = path.join(projectRoot, 'web');
 const outputRoot = path.join(projectRoot, 'www');
 
 if (path.dirname(outputRoot) !== projectRoot || path.basename(outputRoot) !== 'www') {
@@ -12,13 +13,20 @@ if (path.dirname(outputRoot) !== projectRoot || path.basename(outputRoot) !== 'w
 await rm(outputRoot, { recursive: true, force: true });
 await mkdir(outputRoot, { recursive: true });
 
-for (const directory of ['assets', 'dl', 'Library', 'Workshop']) {
-    await cp(path.join(projectRoot, directory), path.join(outputRoot, directory), { recursive: true });
+for (const directory of ['assets', 'Library', 'Workshop']) {
+    await cp(path.join(webRoot, directory), path.join(outputRoot, directory), { recursive: true });
 }
 
 for (const file of ['index.html', '404.html', 'favicon.svg', 'manifest.json']) {
-    await copyFile(path.join(projectRoot, file), path.join(outputRoot, file));
+    await copyFile(path.join(webRoot, file), path.join(outputRoot, file));
 }
+
+// The default BGM is stored under an ASCII name because go:embed rejects the
+// original Unicode-punctuated name; restore the runtime URL for the mobile bundle.
+await copyFile(
+    path.join(outputRoot, 'assets', 'audio', 'rainy-alley-night.mp3'),
+    path.join(outputRoot, 'assets', 'audio', '雨夜（街巷）.mp3'),
+);
 
 const vendorRoot = path.join(outputRoot, 'assets', 'vendor');
 await mkdir(vendorRoot, { recursive: true });

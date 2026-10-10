@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image
 
 
-ROOT = Path(__file__).resolve().parents[1] / "assets" / "art"
+ROOT = Path(__file__).resolve().parents[1] / "web" / "assets" / "art"
 SOURCES = [
     *sorted((ROOT / "generated").glob("*.png")),
     *sorted((ROOT / "user-edited").glob("*.png")),

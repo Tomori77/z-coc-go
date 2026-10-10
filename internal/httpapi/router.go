@@ -52,5 +52,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/dl/download.php", download)
 	mux.HandleFunc("/download.php", download)
 
+	// Static frontend catch-all: registered last so the specific API patterns
+	// above always win. It also owns the SPA fallback and .php 404s.
+	mux.HandleFunc("/", s.wrap(s.handleStatic))
+
 	return mux
 }
