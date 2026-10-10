@@ -97,6 +97,9 @@ docker compose -f docker-compose.full.yml up -d --build
 | `PGSQL_PORT` | 可选 | 默认 `5432` |
 | `APP_PORT` | 可选 | 宿主机映射端口，默认 `8080` |
 | `DOCKER_NETWORK` | 可选 | 方案一的外部网络名，默认 `zcoc-net` |
+| `MEDIA_DIR` | 可选 | 媒体图片挂载目录，默认 `/media`（`docker-compose*.yml` 已设并只读挂载 `./media:/media:ro`） |
+| `ADMIN_EMAILS` | 可选 | 管理员引导邮箱，逗号分隔；这些账号在启动/登录时被提升为管理员 |
+| `TRUST_PROXY_HEADERS` | 可选 | 置于反代之后时设为 `1`，从 `X-Forwarded-For`/`X-Real-IP` 解析真实客户端 IP |
 | `APP_ALLOWED_ORIGINS` | 可选 | CORS 白名单，**同域留空** |
 
 > **`APP_ALLOWED_ORIGINS` 说明**：同域访问（前端与 API 同源）**留空**即可；跨域或原生端用**逗号分隔**的**完整 Origin**（如 `https://example.com,https://localhost`），**禁止使用 `*`**。Capacitor 原生端需包含 `https://localhost,capacitor://localhost`。
@@ -105,6 +108,22 @@ docker compose -f docker-compose.full.yml up -d --build
 
 `PGSQL_*` 为首选；若未设置，会依次回退到 `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME`，
 最后才是 `DATABASE_URL` 连接串。
+
+---
+
+## 3.1 媒体图片（挂载目录）
+
+道具图片等媒体文件可放在**宿主机挂载目录**，**无需重建镜像**即可热更新：
+
+1. `docker-compose*.yml` 已把宿主机的 `./media` **只读挂载**到容器 `/media`（`./media:/media:ro`），
+   并设 `MEDIA_DIR=/media`。
+2. 把文件放进宿主机的 `media/items/`（服务器上用文件管理器或 `scp` 放入；目录只读挂载，请从宿主机放）。
+3. 打开 `https://<域名>/Admin/` → **设置 → 道具清单**，把对应道具的 `image` 设为
+   `/media/items/<file>`；保存即时生效。
+4. 访问验证：`https://<域名>/media/items/<file>`。
+
+> 详细步骤（含本地 PNG→WebP 转换）见 [`docs/MEDIA_ASSETS.md`](MEDIA_ASSETS.md)。
+> `media/` **不在 git**（已忽略），请自行备份。
 
 ---
 
@@ -134,6 +153,8 @@ docker compose -f docker-compose.full.yml up -d --build
 - [ ] `curl http://127.0.0.1:8080/health.php` 返回 `{"status":"ok"}`
 - [ ] 浏览器打开首页（`http://<host>:8080/`）静态页面正常加载
 - [ ] `tools/api-smoke.ps1 -BaseUrl http://127.0.0.1:8080` → **27 passed, 0 failed**
+- [ ] `/media/items/<file>` 可访问（若已放置媒体文件）
+- [ ] 管理员页 `http://<host>:8080/Admin/` 可打开
 - [ ] 跨设备云存档：A 设备存档 → B 设备登录恢复
 - [ ] 多人房间：建房 → 加入 → 推送 → 同步（WebSocket 通道）
 

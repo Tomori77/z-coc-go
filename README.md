@@ -68,8 +68,10 @@ powershell -ExecutionPolicy Bypass -File tools/api-smoke.ps1 -BaseUrl http://127
 ## 状态
 
 - **Phase 0 / 1 / 2 / 3 完成**：Go 实现与 PHP 相同的 API 契约（smoke **27/27**），Go 托管静态前端（`go:embed` + 缓存/安全头/CSP/SPA 回退），WebSocket 实时房间（前端保留 HTTP 回退）。
-- 待办：Phase 4（好友功能、多人游戏大厅、管理员后台、战斗界面、地图）。
+- **Phase 4 已落地**：好友（`friend_api`，smoke 17/17）、多人游戏大厅（`list_public`/`set_public`/`set_name`/`close`，smoke 30/30）、管理员后台（`admin_api` + 独立页 `web/Admin/`，smoke 57/57）、房间社交（房主结束本轮、只读看卡、群聊、弹幕、道具）、服务端应用配置（`config_api` 公开只读 + 后台可编辑开关/冷却/道具清单）、媒体挂载（`/media/*`，道具图片无需重建镜像）。以上后端+前端完成，浏览器端到端实测待做。
+- **待办**：Phase 4.4 / 4.5（战斗界面、地图）。
 
 ## 文档
 
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — 部署指南（方案一 / 方案二、环境变量、反代、备份）
+- [`docs/MEDIA_ASSETS.md`](docs/MEDIA_ASSETS.md) — 道具 / 媒体图片挂载目录 `/media` 使用指南
