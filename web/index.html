@@ -9869,6 +9869,18 @@ ${buildInvestigatorProfile(inv)}
                             if (multiplayerState.isHost) broadcastMessage({ type: 'room_closed' });
                             else broadcastMessage({ type: 'player_left', user: { id: getRoomSessionId(), name: user.name } });
                         } catch (e) { /* 退房广播失败不阻断本地清理 */ }
+                        if (multiplayerState.isHost && leavingRoomId && multiplayerState.hostToken) {
+                            try {
+                                await roomApiRequest('close', {
+                                    room_id: leavingRoomId,
+                                    user_id: getRoomSessionId(),
+                                    host_token: multiplayerState.hostToken
+                                });
+                            } catch (e) {
+                                // best-effort; local cleanup must still proceed
+                                console.warn('Room close request failed:', e);
+                            }
+                        }
                     }
                     stopRoomPolling();
                     closeRoomSocket();

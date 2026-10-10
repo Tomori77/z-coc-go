@@ -247,6 +247,28 @@ func (s *Store) DeleteRoomMessages(ctx context.Context, roomID string) error {
 	return err
 }
 
+// CloseRoom deletes a room and its related messages and presence rows in a
+// single transaction, so the room disappears immediately instead of waiting
+// for TTL cleanup.
+func (s *Store) CloseRoom(ctx context.Context, roomID string) error {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM coc_room_messages WHERE room_id = $1`, roomID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM coc_room_presence WHERE room_id = $1`, roomID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM coc_rooms WHERE room_id = $1`, roomID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 // GetActiveRoom returns a non-expired room, or nil when missing/expired.
 func (s *Store) GetActiveRoom(ctx context.Context, roomID string, ttlHours int) (*Room, error) {
 	row := s.Pool.QueryRow(ctx,

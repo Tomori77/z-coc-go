@@ -171,6 +171,33 @@ Write-Host "[auth]" -ForegroundColor Yellow
 $setPublicBad = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'set_public' } -Body @{ room_id = $privateRoomId; user_id = $privateHostId; host_token = (New-Hex -Bytes 32); is_public = $false }
 Assert-True ($setPublicBad.Status -eq 403 -and $setPublicBad.Body.code -eq 'HOST_AUTH_FAILED') 'set_public with WRONG host_token returns 403 HOST_AUTH_FAILED'
 
+Write-Host "[close room]" -ForegroundColor Yellow
+$closeRoomId = 'LOB' + ([guid]::NewGuid().ToString('N').Substring(0, 5).ToUpper())
+$closeHostId = 'host' + [guid]::NewGuid().ToString('N').Substring(0, 6)
+
+$createClose = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'create' } -Body @{ room_id = $closeRoomId; user_id = $closeHostId; is_public = $true }
+Assert-True ($createClose.Status -eq 200 -and $createClose.Body.status -eq 'success' -and $createClose.Body.host_token) 'create room for close returns host_token'
+$closeToken = $createClose.Body.host_token
+
+$pullClose = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'pull'; room_id = $closeRoomId; user_id = $closeHostId }
+Assert-True ($pullClose.Status -eq 200 -and $pullClose.Body.status -eq 'success') 'close-room host pull registers presence (200)'
+
+$closeBad = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'close' } -Body @{ room_id = $closeRoomId; user_id = $closeHostId; host_token = (New-Hex -Bytes 32) }
+Assert-True ($closeBad.Status -eq 403 -and $closeBad.Body.code -eq 'HOST_AUTH_FAILED') 'close with WRONG host_token returns 403 HOST_AUTH_FAILED'
+
+$closeOk = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'close' } -Body @{ room_id = $closeRoomId; user_id = $closeHostId; host_token = $closeToken }
+Assert-True ($closeOk.Status -eq 200 -and $closeOk.Body.status -eq 'success') 'host close with correct host_token returns 200'
+
+$listClosed = Invoke-Api -Method GET -Path 'room_api.php' -Query @{ action = 'list_public' }
+$closedEntry = @($listClosed.Body.rooms | Where-Object { $_.room_id -eq $closeRoomId })
+Assert-True ($closedEntry.Count -eq 0) 'list_public no longer includes the closed room'
+
+$joinClosed = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'join' } -Body @{ room_id = $closeRoomId }
+Assert-True ($joinClosed.Status -eq 404) 'join on a closed room returns 404 (gone)'
+
+$closeAgain = Invoke-Api -Method POST -Path 'room_api.php' -Query @{ action = 'close' } -Body @{ room_id = $closeRoomId; user_id = $closeHostId; host_token = $closeToken }
+Assert-True ($closeAgain.Status -eq 200 -and $closeAgain.Body.status -eq 'success') 'close again (already closed) returns 200 idempotent'
+
 Write-Host ""
 $color = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
 Write-Host ("Result: {0} passed, {1} failed" -f $script:Pass, $script:Fail) -ForegroundColor $color
