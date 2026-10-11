@@ -6142,6 +6142,9 @@
                 const closeMemberCard = () => { showMemberCard.value = false; memberCardInv.value = null; };
                 const onMemberTileClick = (member) => {
                     if (selectedItem.value && itemsEnabled.value) { useItemOn(member); return; }
+                    // 点自己的头像 → 打开可点击的角色详细信息卡（属性/技能可填入鉴定指令）
+                    const selfId = multiplayerState.myId || user.uuid;
+                    if (member && member.id === selfId && hasActiveInvestigator.value) { openCharacterDrawer(); return; }
                     if (multiplayerState.isHost) selectRoomMember(member);
                     else viewMemberCard(member);
                 };
